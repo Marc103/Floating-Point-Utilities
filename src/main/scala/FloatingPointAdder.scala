@@ -75,12 +75,12 @@ class FloatingPointAdder (exp_bits: Int, frac_bits: Int) extends Module {
  */
 class SGM(exp_bits: Int, frac_bits: Int) extends Module {
   val io = IO(new Bundle{
-    val fp_a              = Input(UInt((1 + exp_bits + frac_bits).W))
-    val fp_b              = Input(UInt((1 + exp_bits + frac_bits).W))
+    val fp_a     = Input(UInt((1 + exp_bits + frac_bits).W))
+    val fp_b     = Input(UInt((1 + exp_bits + frac_bits).W))
 
-    val fp_big            = Output(UInt((1 + exp_bits + 1 + 1 + frac_bits + 1).W))
-    val fp_small          = Output(UInt((1 + exp_bits + 1 + 1 + frac_bits + 1).W))
-    val exp_diff          = Output(UInt(exp_bits.W))
+    val fp_big   = Output(UInt((1 + exp_bits + 1 + 1 + frac_bits + 1).W))
+    val fp_small = Output(UInt((1 + exp_bits + 1 + 1 + frac_bits + 1).W))
+    val exp_diff = Output(UInt(exp_bits.W))
   })
 
   ////////////////////////////////////////////////////////////////
@@ -197,12 +197,12 @@ class SGM(exp_bits: Int, frac_bits: Int) extends Module {
  */
 class NGM(exp_bits: Int, frac_bits: Int) extends Module {
   val io = IO(new Bundle{
-    val fp_big            = Input(UInt((1 + exp_bits + 1 + 1 + frac_bits + 1).W))
-    val fp_small          = Input(UInt((1 + exp_bits + 1 + 1 + frac_bits + 1).W))
-    val exp_diff          = Input(UInt(exp_bits.W))
+    val fp_big   = Input(UInt((1 + exp_bits + 1 + 1 + frac_bits + 1).W))
+    val fp_small = Input(UInt((1 + exp_bits + 1 + 1 + frac_bits + 1).W))
+    val exp_diff = Input(UInt(exp_bits.W))
 
-    val fp_a              = Output(UInt((1 + exp_bits + 1 + 1 + frac_bits + 1).W))
-    val fp_b              = Output(UInt((1 + exp_bits + 1 + 1 + frac_bits + 1).W))
+    val fp_a     = Output(UInt((1 + exp_bits + 1 + 1 + frac_bits + 1).W))
+    val fp_b     = Output(UInt((1 + exp_bits + 1 + 1 + frac_bits + 1).W))
   })
 
   ////////////////////////////////////////////////////////////////
@@ -228,6 +228,8 @@ class NGM(exp_bits: Int, frac_bits: Int) extends Module {
 
   ////////////////////////////////////////////////////////////////
   // Setting up wires and default values
+  val fp_big_exp                  = Wire(UInt(exp_bits.W))
+
   val fp_small_sign               = Wire(UInt(1.W))
   val fp_small_exp                = Wire(UInt(exp_bits.W))
   val fp_small_carry              = Wire(UInt(1.W))
@@ -236,6 +238,8 @@ class NGM(exp_bits: Int, frac_bits: Int) extends Module {
   val fp_small_round              = Wire(UInt(1.W))
   val fp_small_frac_total         = Wire(UInt((1 + 1 + frac_bits + 1).W))
   val fp_small_frac_total_shifted = Wire(UInt((1 + 1 + frac_bits + 1).W))
+
+  fp_big_exp                  := fp_big_reg(exp_idx + exp_bits - 1, exp_idx)
 
   fp_small_sign               := fp_small_reg(sign_idx)
   fp_small_exp                := fp_small_reg(exp_idx + exp_bits - 1, exp_idx)
@@ -246,28 +250,36 @@ class NGM(exp_bits: Int, frac_bits: Int) extends Module {
   fp_small_frac_total         := fp_small_reg(frac_total_idx + frac_total_bits - 1, frac_total_idx)
   fp_small_frac_total_shifted := fp_small_frac_total
 
-
   ////////////////////////////////////////////////////////////////
   // Variable Right Shifter
   // if it's all 0, set exponent to 0 and lead to 0
+  // if we are shifting
   when(fp_small_frac_total =/= 0.U){
-    for(bit_idx <- 0 to (frac_total_bits-2)){
-      when(fp_small_frac_total(bit_idx)){
-        fp_small_frac_total_shifted := fp_small_frac_total >> bit_idx
-      }
+    fp_small_frac_total_shifted := 0.U
+    // need to consider lead bit and round bit
+    when(exp_diff_reg <= (frac_bits + 1).U){
+      // variable right shifter
+      fp_small_frac_total_shifted := fp_small_frac_total >> exp_diff_reg
     }
   }
 
-
+  ////////////////////////////////////////////////////////////////
+  // Set out
+  io.fp_a := fp_big_reg
+  io.fp_b := (fp_small_sign ##
+              fp_big_exp ##
+              fp_small_frac_total_shifted)
 
 }
-
-
 
 // Round off Normalized Value
 /* We need to round the normalized value by using the round bit. Although,
  * we maintain a carry bit, if a shift occurred, rounding will not cause the
- * carry bit to become 1.
+ * carry bit to become 1. This is important because if the carry bit became one
+ * that would signal having to increment the exponent by 1 (which would throw
+ * away all our efforts at normalize the magnitudes) Using total form, this just
+ * means adding 1 to
+ * 'frac_total' - carry bit, lead bit, frac_bits, round_bit to fp_b.
  * [+] - frac_bits
  */
 class RNV(exp_bits: Int, frac_bits: Int) extends Module {
@@ -278,6 +290,41 @@ class RNV(exp_bits: Int, frac_bits: Int) extends Module {
     val fp_a_norm          = Output(UInt((1 + exp_bits + 1 + 1 + frac_bits + 1).W))
     val fp_b_norm          = Output(UInt((1 + exp_bits + 1 + 1 + frac_bits + 1).W))
   })
+  ////////////////////////////////////////////////////////////////
+  // Local parameters
+  val sign_idx       = exp_bits + 1 + 1 + frac_bits + 1
+  val exp_idx        = 1 + 1 + frac_bits + 1
+  val frac_total_idx = 0
+  val frac_total_bits = 1 + 1 + frac_bits + 1
+
+  ////////////////////////////////////////////////////////////////
+  // Setting up Registers and initial values
+  val fp_a_reg = RegInit(UInt((1 + exp_bits + 1 + 1 + frac_bits + 1).W))
+  val fp_b_reg = RegInit(UInt((1 + exp_bits + 1 + 1 + frac_bits + 1).W))
+
+  fp_a_reg := io.fp_a
+  fp_b_reg := io.fp_b
+
+  ////////////////////////////////////////////////////////////////
+  // Setting up wires and default values
+  val fp_b_sign       = Wire(UInt(1.W))
+  val fp_b_exp        = Wire(UInt(exp_bits.W))
+  val fp_b_frac_total = Wire(UInt((1 + 1 + frac_bits + 1).W))
+
+  fp_b_sign       := fp_b_reg(sign_idx)
+  fp_b_exp        := fp_b_reg(exp_idx + exp_bits - 1, exp_idx)
+  fp_b_frac_total := fp_b_reg(frac_total_idx + frac_total_bits - 1, frac_total_idx)
+
+  ////////////////////////////////////////////////////////////////
+  // Round
+  fp_b_frac_total := fp_b_frac_total + 1.U
+
+  ////////////////////////////////////////////////////////////////
+  // Set out
+  io.fp_a_norm := fp_a_reg
+  io.fp_b_norm := (fp_b_sign ##
+                   fp_b_exp ##
+                   fp_b_frac_total)
 }
 
 // Add Values Together
