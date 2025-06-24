@@ -647,5 +647,5 @@ object FloatingPointAdderMain extends App {
   println("Generating Floating Pointer Adder hardware.")
   // fp32 - 8, 23
   // binary16 - 5,10
-  emitVerilog(new FloatingPointAdder(5,11), Array("--target-dir","generated"))
+  emitVerilog(new FloatingPointAdder(5,10), Array("--target-dir","generated"))
 }
