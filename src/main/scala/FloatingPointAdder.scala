@@ -646,6 +646,6 @@ class RR(exp_bits: Int, frac_bits: Int) extends Module {
 object FloatingPointAdderMain extends App {
   println("Generating Floating Pointer Adder hardware.")
   // fp32 - 8, 23
-  // binary16 - 5,11
+  // binary16 - 5,10
   emitVerilog(new FloatingPointAdder(5,11), Array("--target-dir","generated"))
 }
