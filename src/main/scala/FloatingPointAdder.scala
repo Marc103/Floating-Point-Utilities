@@ -357,6 +357,7 @@ class RNV(exp_bits: Int, frac_bits: Int) extends Module {
   // Local parameters
   val sign_idx       = exp_bits + 1 + 1 + frac_bits + 1
   val exp_idx        = 1 + 1 + frac_bits + 1
+  val round_idx      = 0
   val frac_total_idx = 0
   val frac_total_bits = 1 + 1 + frac_bits + 1
 
@@ -383,7 +384,12 @@ class RNV(exp_bits: Int, frac_bits: Int) extends Module {
 
   ////////////////////////////////////////////////////////////////
   // Round
-  fp_b_frac_total_0 := fp_b_frac_total + 1.U
+  when(fp_b_frac_total(round_idx)) {
+    fp_b_frac_total_0 := fp_b_frac_total + 1.U
+  } .otherwise {
+    fp_b_frac_total_0 := fp_b_frac_total
+  }
+
 
   ////////////////////////////////////////////////////////////////
   // Set out
@@ -463,15 +469,41 @@ class AVT(exp_bits: Int, frac_bits: Int) extends Module {
 
   ////////////////////////////////////////////////////////////////
   // Adding Values together
-  fp_result_frac_total_0 := fp_a_norm_frac_total + fp_b_norm_frac_total
+  val fp_a_norm_frac_total_n = Wire(UInt((1 + 1 + frac_bits + 1).W))
+  val fp_b_norm_frac_total_n = Wire(UInt((1 + 1 + frac_bits + 1).W))
+  fp_a_norm_frac_total_n := ~fp_a_norm_frac_total
+  fp_b_norm_frac_total_n := ~fp_b_norm_frac_total
+
+  val fp_a_norm_frac_total_s   = Wire(UInt((1 + 1 + frac_bits + 1).W))
+  val fp_b_norm_frac_total_s   = Wire(UInt((1 + 1 + frac_bits + 1).W))
+  fp_a_norm_frac_total_s := fp_a_norm_frac_total
+  fp_b_norm_frac_total_s := fp_b_norm_frac_total
+
+  when(fp_a_norm_sign === 1.U){
+    fp_a_norm_frac_total_s := fp_a_norm_frac_total_n + 1.U
+  }
+  when(fp_b_norm_sign === 1.U){
+    fp_b_norm_frac_total_s := fp_b_norm_frac_total_n + 1.U
+  }
+
+  fp_result_frac_total_0 := fp_a_norm_frac_total_s + fp_b_norm_frac_total_s
+  fp_result_frac_total := fp_result_frac_total_0
+
+  val fp_result_frac_total_0_n  = Wire(UInt((1 + 1 + frac_bits + 1).W))
+  fp_result_frac_total_0_n := ~fp_result_frac_total_0
+
   when(fp_a_norm_sign === fp_b_norm_sign){
-    fp_result_sign       := fp_a_norm_sign
+    fp_result_sign := fp_a_norm_sign
   } .otherwise {
-    // if negative, clear carry and set sign to negative
+    fp_result_sign := 0.U
+    // if the carry bit is 1, the result is negative, convert to unsigned
+    // (this will clear the carry as well)
     when(fp_result_frac_total_0(carry_idx)){
       fp_result_sign := 1.U
-      fp_result_frac_total := 0.U(1.W) ## fp_result_frac_total_0(frac_total_bits-2,0)
+      fp_result_frac_total := fp_result_frac_total_0_n + 1.U
     }
+    // otherwise it is a positive value and the carry bit
+    // will be 0
   }
 
   ////////////////////////////////////////////////////////////////
@@ -537,6 +569,7 @@ class NR(exp_bits: Int, frac_bits: Int) extends Module {
   ////////////////////////////////////////////////////////////////
   // Right 1 or Variable Left shifter
   when(fp_result_frac_total === 0.U){
+    fp_result_sign := 0.U
     tmp_exp := 0.U
     tmp_frac_total := 0.U
   } .otherwise {
@@ -549,16 +582,18 @@ class NR(exp_bits: Int, frac_bits: Int) extends Module {
         tmp_of_uf      := 0.U
       }
     }
+
     // if carry bit, perform right shift
     when(fp_result_frac_total(frac_total_bits - 1)){
       tmp_frac_total := fp_result_frac_total >> 1
       tmp_exp        := fp_result_exp + 1.U
       tmp_of_uf      := 0.U
     }
+
   }
   // signals overflow or underflow
   val tmp_exp_0 = Wire(UInt((exp_bits + 1).W))
-  tmp_exp_0 := 0.U
+  tmp_exp_0 := tmp_exp(exp_bits-1,0)
   when(tmp_exp(exp_bits)){
     // overflow
     when(tmp_of_uf === 1.U){
@@ -600,6 +635,7 @@ class RR(exp_bits: Int, frac_bits: Int) extends Module {
   val sign_idx       = exp_bits + 1 + 1 + frac_bits + 1
   val exp_idx        = 1 + 1 + frac_bits + 1
   val carry_idx      = 1 + frac_bits + 1
+  val round_idx      = 0
   val frac_total_idx = 0
   val frac_total_bits = 1 + 1 + frac_bits + 1
 
@@ -624,7 +660,12 @@ class RR(exp_bits: Int, frac_bits: Int) extends Module {
   ////////////////////////////////////////////////////////////////
   // Rounding
   val fp_result_norm_frac_total_0 = Wire(UInt((1 + 1 + frac_bits + 1).W))
-  fp_result_norm_frac_total_0 := fp_result_norm_frac_total + 1.U
+  when(fp_result_norm_frac_total(round_idx)){
+    fp_result_norm_frac_total_0 := fp_result_norm_frac_total + 1.U
+  } .otherwise {
+    fp_result_norm_frac_total_0 := fp_result_norm_frac_total
+  }
+
   val fp_result_norm_exp_0 = Wire(UInt(exp_bits.W))
   fp_result_norm_exp_0 := fp_result_norm_reg(exp_idx + exp_bits - 1, exp_idx)
 
