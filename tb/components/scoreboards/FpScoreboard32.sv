@@ -23,6 +23,7 @@ class FpScoreboard32 #(type T);
                 $display("Yay");
             end else begin
                 $display("Error expected: %h got %h", floating_points_golden.r, floating_points_dut.r);
+                $display($bitstoshortreal(floating_points_golden.r));
             end
         end
 

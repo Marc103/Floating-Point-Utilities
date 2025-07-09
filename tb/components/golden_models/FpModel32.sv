@@ -30,7 +30,7 @@ class FpModel32 #(type T);
             a_bits = $shortrealtobits(a);
             b_bits = $shortrealtobits(b);
             r_bits = $shortrealtobits(r);
-            floating_points = new(a,b,r);
+            floating_points = new(a_bits,b_bits,r_bits);
             out_broadcaster.push(floating_points);
         end
     endtask
