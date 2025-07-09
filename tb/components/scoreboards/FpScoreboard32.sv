@@ -1,3 +1,5 @@
+import utilities_pkg::*;
+
 class FpScoreboard32 #(type T);
     TriggerableQueue #(T) in_queue_dut;
     TriggerableQueue #(T) in_queue_golden;
@@ -14,12 +16,13 @@ class FpScoreboard32 #(type T);
         T floating_points_dut;
         T floating_points_golden;
         forever begin
-            floating_points_dut = in_queue_dut.pop();
-            floating_points_golden = in_queue_golden.pop();
+            in_queue_dut.pop(floating_points_dut);
+            in_queue_golden.pop(floating_points_golden);
+            $display("Scoreboard comparing!");
             if(floating_points_golden.r == floating_points_dut.r) begin
                 $display("Yay");
             end else begin
-                $display("Error");
+                $display("Error expected: %h got %h", floating_points_golden.r, floating_points_dut.r);
             end
         end
 

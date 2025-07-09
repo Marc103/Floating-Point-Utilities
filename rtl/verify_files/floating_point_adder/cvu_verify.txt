@@ -63,7 +63,8 @@ Main:
       - if the carry bit is zero, it is a positive value, no need to    _*_
         convert
         - this also means the result sign bit is 0                      _*_
-      
+      - There is another important check, if it turns out the result
+        is zero, we need to set fp_exp to 0                             _*_
     
 Output
 - fp_o is the concatenation of fp_sign, fp_exp and fp_frac_exp          _*_

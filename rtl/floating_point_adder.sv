@@ -76,7 +76,7 @@ module sgm #(
     output [FP_WIDTH_TOT - 1 : 0] fp_a_o,
     output [FP_WIDTH_TOT - 1 : 0] fp_b_o,
     output [EXP_WIDTH - 1 : 0]    exp_diff_o,
-    output                        valid_o,
+    output                        valid_o
 );
     ////////////////////////////////////////////////////////////////
     // Input Registers
@@ -209,7 +209,7 @@ module ngm #(
     parameter EXP_IDX_LSB = FRAC_EX_WIDTH,
     parameter EXP_IDX_MSB = EXP_WIDTH + EXP_IDX_LSB - 1,
     parameter SIGN_IDX = EXP_WIDTH + FRAC_EX_WIDTH,
-    parameter FP_WIDTH_TOT = 1 + EXP_WIDTH + FRAC_EX_WIDTH,
+    parameter FP_WIDTH_TOT = 1 + EXP_WIDTH + FRAC_EX_WIDTH
 ) (
     input clk_i,
     input rst_i,
@@ -512,14 +512,14 @@ module avt #(
 
         fp_sign      = 0;
         fp_exp       = fp_a_exp;
-        fp_frac_exp  = 0;
+        fp_frac_ex  = 0;
 
-        fp_frac_exp = fp_a_frac_exp + fp_b_frac_exp;
+        fp_frac_ex = fp_a_frac_ex + fp_b_frac_ex;
     end
 
     ////////////////////////////////////////////////////////////////
     // Output
-    assign fp_o        = {fp_sign, fp_exp, fp_frac_exp};
+    assign fp_o        = {fp_sign, fp_exp, fp_frac_ex};
     assign fp_a_sign_o = fp_a_sign;
     assign fp_b_sign_o = fp_b_sign;
     assign valid_o     = valid_reg;
@@ -597,6 +597,8 @@ module cvu #(
         end else begin
             fp_sign = fp_a_sign_reg;
         end
+
+        if(fp_frac_ex == 0) fp_exp = 0;
 
     end
 
@@ -916,8 +918,8 @@ module floating_point_adder #(
         .valid_i(cvt_avt_valid_w),
 
         .fp_o(avt_cvu_fp_w),
-        .fp_a_sign(avt_cvu_fp_a_sign_w),
-        .fp_b_sign(avt_cvu_fp_b_sign_w),
+        .fp_a_sign_o(avt_cvu_fp_a_sign_w),
+        .fp_b_sign_o(avt_cvu_fp_b_sign_w),
         .valid_o(avt_cvu_valid_w)
     );
 

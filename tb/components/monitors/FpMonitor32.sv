@@ -1,10 +1,12 @@
+import utilities_pkg::*;
+
 class FpMonitor32 #(type T, type I);
-    localparam FP_WIDTH_REG = 1 + T.EXP_WIDTH + T.FRAC_WIDTH;
+    localparam FP_WIDTH_REG = 32;
     TriggerableQueueBroadcaster #(T) out_broadcaster;
-    virtual I inf;
+    I inf;
 
     function new(TriggerableQueueBroadcaster #(T) out_broadcaster,
-                 virtual I inf);
+                 I inf);
         this.out_broadcaster = out_broadcaster;
         this.inf = inf;
     endfunction
@@ -14,7 +16,8 @@ class FpMonitor32 #(type T, type I);
         forever begin
             @(negedge inf.clk_i);
             if(inf.valid_o) begin
-                floating_points = new FloatingPoint(0, 0, inf.fp_o);
+                floating_points = new(0, 0, inf.fp_o);
+                $display("Monitor found result!");
                 out_broadcaster.push(floating_points);
             end
         end

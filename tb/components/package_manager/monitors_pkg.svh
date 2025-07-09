@@ -1,3 +1,3 @@
 package monitors_pkg;
-    `include "monitors_pkg.sv"
+    `include "FpMonitor32.sv"
 endpackage

@@ -1,13 +1,15 @@
-class FpMode32 #(type T);
-    localparam FP_WIDTH_REG = 1 + T.EXP_WIDTH + T.FRAC_WIDTH;
+import utilities_pkg::*;
+
+class FpModel32 #(type T);
+    localparam FP_WIDTH_REG = 32;
     TriggerableQueue #(T) in_queue;
     TriggerableQueueBroadcaster #(T) out_broadcaster;
 
     function new(
-        TriggerableQueue in_queue,
-        TriggerableQueue out_broadcaster
+        TriggerableQueue #(T) in_queue,
+        TriggerableQueueBroadcaster #(T) out_broadcaster
     );
-        this.in_queue;
+        this.in_queue = in_queue;
         this.out_broadcaster = out_broadcaster;
     endfunction
 
@@ -21,14 +23,14 @@ class FpMode32 #(type T);
         logic [FP_WIDTH_REG - 1 : 0] r_bits;
 
         forever begin
-            floating_points = in_queue.pop();
+            in_queue.pop(floating_points);
             a = $bitstoshortreal(floating_points.a);
             b = $bitstoshortreal(floating_points.b);
             r = a + b;
             a_bits = $shortrealtobits(a);
             b_bits = $shortrealtobits(b);
             r_bits = $shortrealtobits(r);
-            floating_points = new FloatingPoint(a,b,r);
+            floating_points = new(a,b,r);
             out_broadcaster.push(floating_points);
         end
     endtask

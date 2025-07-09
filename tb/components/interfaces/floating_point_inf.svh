@@ -1,3 +1,5 @@
+`ifndef FLOATING_POINT_INF  
+    `define FLOATING_POINT_INF
 interface floating_point_inf #(
     parameter EXP_WIDTH = 0,
     parameter FRAC_WIDTH = 0,
@@ -13,4 +15,5 @@ interface floating_point_inf #(
     logic [FP_WIDTH_REG - 1 : 0] fp_o;
     logic                        valid_o;
 
-endinteface
+endinterface
+`endif 

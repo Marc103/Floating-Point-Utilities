@@ -1,8 +1,19 @@
+////////////////////////////////////////////////////////////////
+// interface include 
+`include "floating_point_inf.svh"
+
+////////////////////////////////////////////////////////////////
+// package includes
+`include "utilities_pkg.svh"
+`include "drivers_pkg.svh"
+`include "generators_pkg.svh"
+`include "golden_models_pkg.svh"
+`include "monitors_pkg.svh"
+`include "scoreboards_pkg.svh"
 
 ////////////////////////////////////////////////////////////////
 // imports
 import utilities_pkg::*;
-import interfaces_pkg::*;
 import drivers_pkg::*;
 import generators_pkg::*;
 import golden_models_pkg::*;
@@ -13,21 +24,24 @@ import scoreboards_pkg::*;
 // RTL includes
 `include "floating_point_adder.sv"
 
+////////////////////////////////////////////////////////////////
+// timescale 
+
 module floating_point_adder_32_tb();
 
     ////////////////////////////////////////////////////////////////
     // localparams
-    localparameter EXP_WIDTH = 8;
-    localparameter FRAC_WIDTH = 23;
+    localparam EXP_WIDTH = 8;
+    localparam FRAC_WIDTH = 23;
     
     localparam real CLK_PERIOD = 10;
 
-    type localparam T = FloatingPoint #(
+    localparam type T = FloatingPoint #(
         .EXP_WIDTH(EXP_WIDTH),
         .FRAC_WIDTH(FRAC_WIDTH)
     );
 
-    type localparam I = floating_point_inf #(
+    localparam type I = virtual floating_point_inf #(
         .EXP_WIDTH(EXP_WIDTH),
         .FRAC_WIDTH(FRAC_WIDTH)
     );
@@ -40,7 +54,10 @@ module floating_point_adder_32_tb();
 
     ////////////////////////////////////////////////////////////////
     // interface
-    I bfm;
+    floating_point_inf #(
+        .EXP_WIDTH(EXP_WIDTH),
+        .FRAC_WIDTH(FRAC_WIDTH)
+    ) bfm (.clk_i(clk), .rst_i(rst));
     
     ////////////////////////////////////////////////////////////////
     // DUT
@@ -60,50 +77,55 @@ module floating_point_adder_32_tb();
     );
 
     initial begin
-        $dumpfile("waves.vcd");
-        $dumpvars(0, floating_point_adder_32_tb);
-
         ////////////////////////////////////////////////////////////////
         // generator
-        TriggerableQueueBroadcaster #(T) generator_out_broadcast = new();
-        FpGenerator32 #(T) generator = new(generator_out_broadcast);
+        static TriggerableQueueBroadcaster #(T) generator_out_broadcast = new();
+        static FpGenerator32 #(T) generator = new(generator_out_broadcast);
 
         ////////////////////////////////////////////////////////////////
         // driver
-        TriggerableQueue #(T) driver_in_queue = new();
-        generator_out_broadcast.add_queue(driver_in_queue);
-
-        FpDriver32 #(T) driver = new(driver_in_queue, bfm);
+        static TriggerableQueue #(T) driver_in_queue = new();
+        static FpDriver32 #(T, I) driver = new(driver_in_queue, bfm);
 
         ////////////////////////////////////////////////////////////////
         // golden model
-        TriggerableQueue #(T) golden_in_queue = new();
-        generator_out_broadcast.add_queue(golden_in_queue);
-        TriggerableQueueBroadcaster #(T) golden_out_broadcast = new();
-
-        FpModel32 #(T) golden = new(golden_in_queue, golden_out_broadcast);
+        static TriggerableQueue #(T) golden_in_queue = new();
+        static TriggerableQueueBroadcaster #(T) golden_out_broadcast = new();
+        static FpModel32 #(T) golden = new(golden_in_queue, golden_out_broadcast);
 
         ////////////////////////////////////////////////////////////////
         // monitor
-        TriggerableQueueBroadcaster #(T) monitor_out_broadcast = new();
-
-        FpMonitor32 #(T) monitor = new(monitor_out_broadcast, bfm);
+        static TriggerableQueueBroadcaster #(T) monitor_out_broadcast = new();
+        static FpMonitor32 #(T, I) monitor = new(monitor_out_broadcast, bfm);
 
 
         ////////////////////////////////////////////////////////////////
         // scoreboard
-        TriggerableQueue #(T) scoreboard_in_queue_dut = new();
-        monitor_out_broadcast.add_queue(scoreboard_in_queue_dut);
-        TriggerableQueue #(T) scoreboard_in_queue_golden = new();
-        golden_out_broadcast.add_queue(scoreboard_in_queue_golden);
+        static TriggerableQueue #(T) scoreboard_in_queue_dut = new();
+        static TriggerableQueue #(T) scoreboard_in_queue_golden = new();
+        static FpScoreboard32 #(T) scoreboard = new(scoreboard_in_queue_dut, scoreboard_in_queue_golden);
 
-        FpScoreboard32 #(T) scoreboard = new(scoreboard_in_queue_dut, scoreboard_in_queue_golden);
         ////////////////////////////////////////////////////////////////
         // watch dog
 
+        ////////////////////////////////////////////////////////////////
+        // Queue Linkage
+        generator_out_broadcast.add_queue(driver_in_queue);
+        generator_out_broadcast.add_queue(golden_in_queue);
+        monitor_out_broadcast.add_queue(scoreboard_in_queue_dut);
+        golden_out_broadcast.add_queue(scoreboard_in_queue_golden);
+
+        $dumpfile("waves.vcd");
+        $dumpvars(0, floating_point_adder_32_tb);
+
+        rst <= 0;
+        repeat(5) @(posedge clk)
+        rst <= 1;
+        repeat(7) @(posedge clk)
+        rst <= 0;
         // Run
         fork
-            //generator.run();
+            generator.run();
             driver.run();
             golden.run();
             monitor.run();
@@ -112,6 +134,7 @@ module floating_point_adder_32_tb();
         join_none
 
         #1000;
+        $finish;
     end
 
 
