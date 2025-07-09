@@ -1,0 +1,58 @@
+Convert to signed
+
+Specification:
+- given fp_a_i and fp_b_i in total form, using the sign bits, convert
+  the frac exp of each to its signed version if the sign bits differ, 
+  in prepartion for the addition step
+
+Descriptions:
+- frac ex (expand) describes carry bit, lead bit, frac bits and round bit
+  in that order.
+- it's just a way to break up the full form into pieces:
+    {sign bit, exp bits, frac ex bits} for ease of use
+
+Parameters:
+- EXP_WIDTH,  width of exponent part                                    
+- FRAC_WIDTH, width of fractional part                                  
+
+'Local' Parameters:
+- FRAC_EX_WIDTH, width of frac ex
+    -> 1 + 1 + FRAC_WIDTH + 1                                           
+- FRAC_EX_IDX_LSB, lsb index of frac ex 
+    -> 0                                                                
+- FRAC_EX_IDX_MSB, msb index of frac ex
+    -> FRAC_EX_WIDTH + FRAC_EX_IDX_LSB - 1                              
+- EXP_IDX_LSB, lsb index of exp ex
+    -> FRAC_EX_WIDTH                                                                                               
+- EXP_IDX_MSB, msb index of exp ex
+    -> EXP_WIDTH + EXP_IDX_LSB - 1                                      
+- SIGN_IDX, index of sign bit
+    -> EXP_WIDTH + FRAC_EX_WIDTH                                        _*_
+- FP_WIDTH_TOT, width of total form fp
+    -> 1 + EXP_WIDTH + FRAC_EX_WIDTH   
+
+IO:
+- check widths                                                                         
+
+Main:
+- check widths                                                          
+- sign, exp and frac_ex starting values        
+
+then
+
+- the logic is as such:
+    - with the context of the previous round (rnv)
+    - carry bit is 0
+    - lead bit is either 1 or 0
+    - if the sign bits are the same, then we can maintain
+      both frac ex as they are
+    - if the sign bits differ, then the negative sign one needs
+      to be converted by performing complement + 1
+    - the idea here is adding the frac ex directly is fine
+      when the signs are the same (it's just magnitudes). If they
+      differ, one being converted will guarantee that when they are
+      added together, than an overflow will not occur since we
+      are adding a positive and negative value together.
+    - We can then use the sign bits to determine later whether
+      the carry bit should be interpreted as an actual carry bit
+      or sign bit (as will be written in the avt_verify.txt file)

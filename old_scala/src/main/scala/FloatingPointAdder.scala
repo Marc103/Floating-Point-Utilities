@@ -120,8 +120,7 @@ class SGM(exp_bits: Int, frac_bits: Int) extends Module {
   val exp_idx  = frac_bits
   val frac_idx = 0
 
-  ////////////////////////////////////////////////////////////////
-  // Setting up Registers and initial values
+  
   val fp_a_i_reg = Reg(UInt((1 + exp_bits + frac_bits).W))
   val fp_b_i_reg = Reg(UInt((1 + exp_bits + frac_bits).W))
   val valid_reg  = RegInit(0.U(1.W))
