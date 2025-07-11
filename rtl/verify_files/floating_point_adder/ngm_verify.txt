@@ -74,8 +74,8 @@ Output:
   fp_*_frac_ex.                                 
 - valid_o is valid_reg                                                  _*_
 
-
-
+Log:
+- ngm has been verfied once by me (7/8/25)
 
 
 

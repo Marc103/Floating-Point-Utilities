@@ -28,10 +28,17 @@ Parameters:
 - SIGN_IDX, index of sign bit
     -> EXP_WIDTH + FRAC_EX_WIDTH                                        _*_
 - FP_WIDTH_TOT, width of total form fp
-    -> 1 + EXP_WIDTH + FRAC_EX_WIDTH   
+    -> 1 + EXP_WIDTH + FRAC_EX_WIDTH                                    _*_
 
 IO:
-- check widths                                                          _*_               
+- check widths                                                          _*_  
+
+Input Registers:
+- check widths                                                          _*_
+- fp_a_reg samples fp_a_i @ clk_i                                       _*_
+- fp_b_reg samples fp_b_i @ clk_i                                       _*_
+- if rst_i is high, valid_reg samples 0       @ clk_i                   _*_
+- if rst_i is low,  valid_reg samples valid_i @ clk_i                   _*_
 
 Main:
 - check widths                                                          _*_

@@ -1,8 +1,15 @@
 Floating Point Adder
 
-Follows the IEEE 754 specification but has been parameterized
+Follows the IEEE 754 specification (almost) but has been parameterized
 so that you can adjust how many exponent bits and fraction bits
 you want.
+
+The exception is subnormal values are approximated to zero. In particular,
+the adder can accept subnormal values, but if the result produces a 
+subnormal value, the fractional bit is set to zero. The reasoning is that
+the cost in hardware isn't worth the 'gradual' descent into subnormal,
+if even smaller values are required, use more exponent bits. Adding
+a single exponent bit expands the range by 2^2^x.
 
 The total number of bits including the sign bit is
 1 + EXP_WIDTH + FRAC_WIDTH.
