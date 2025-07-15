@@ -4,12 +4,19 @@ Specification:
 - Wire up all the pieces in the following order:
 1. sgm - select greater magnitude
 2. ngm - normalize greater magnitude
-3. rnv - round normalized value
-4. cvt - convert to signed 
-5. avt - add values together
-6. cvu - convert to unsigned 
-7. nr  - normalize result
-8. rr  - round result 
+x x x 3. rnv - round normalized value x x x
+3. cvt - convert to signed 
+4. avt - add values together
+5. cvu - convert to unsigned 
+6. nr  - normalize result
+7. rr  - round result 
+
+Modification:
+- previously I thought the rounding at rnv was necessary
+but actually it is premature. Instead it is better to allow
+the addition to happen first and let the final rounding do
+the job. Therefore, 'rnv' has been removed adnt this is now
+a 7 stage pipelined adder.
 
 Parameters:
 - EXP_WIDTH,  width of exponent part                                    
@@ -34,27 +41,23 @@ Wiring:
     - parameters                                                _*_
     - widths                                                    _*_
     - names                                                     _*_
-- check 3 wires - rnv
+- check 3 wires - cvt
     - parameters                                                _*_
     - widths                                                    _*_
     - names                                                     _*_
-- check 4 wires - cvt
-    - parameters                                                _*_
-    - widths                                                    _*_
-    - names                                                     _*_
-- check 5 wires - avt
+- check 4 wires - avt
     - parameters                                                _*_                         
     - widths                                                    _*_
     - names                                                     _*_
-- check 6 wires - cvu
+- check 5 wires - cvu
     - parameters                                                _*_                                                   
     - widths                                                    _*_
     - names                                                     _*_ 
-- check 7 wires - nr
+- check 6 wires - nr
     - parameters                                                _*_
     - widths                                                    _*_
     - names                                                     _*_
-- check 8 wires - rr
+- check 7 wires - rr
     - parameters                                                _*_
     - widths                                                    _*_
     - names                                                     _*_

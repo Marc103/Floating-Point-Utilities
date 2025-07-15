@@ -20,62 +20,63 @@ Parameters:
 
 'Local' Parameters:
 - FRAC_EX_WIDTH, width of frac ex
-    -> 1 + 1 + FRAC_WIDTH + 1                                           _*_
+    -> 1 + 1 + FRAC_WIDTH + 1                                           _*_ _*_
 - FRAC_EX_IDX_LSB, lsb index of frac ex 
-    -> 0                                                                _*_
+    -> 0                                                                _*_ _*_
 - FRAC_EX_IDX_MSB, msb index of frac ex
-    -> FRAC_EX_WIDTH + FRAC_EX_IDX_LSB - 1                              _*_
+    -> FRAC_EX_WIDTH + FRAC_EX_IDX_LSB - 1                              _*_ _*_
 - EXP_IDX_LSB, lsb index of exp ex
-    -> FRAC_EX_WIDTH                                                    _*_                                           
+    -> FRAC_EX_WIDTH                                                    _*_ _*_                                           
 - EXP_IDX_MSB, msb index of exp ex
-    -> EXP_WIDTH + EXP_IDX_LSB - 1                                      _*_
+    -> EXP_WIDTH + EXP_IDX_LSB - 1                                      _*_ _*_
 - SIGN_IDX, index of sign bit
-    -> EXP_WIDTH + FRAC_EX_WIDTH                                        _*_
+    -> EXP_WIDTH + FRAC_EX_WIDTH                                        _*_ _*_
 - FP_WIDTH_TOT, width of total form fp
-    -> 1 + EXP_WIDTH + FRAC_EX_WIDTH                                    _*_                              
+    -> 1 + EXP_WIDTH + FRAC_EX_WIDTH                                    _*_ _*_                             
 
 IO:
-- check widths                                                          
+- check widths                                                          _*_ _*_
 
 Input Registers:
-- check widths                                                          _*_
-- fp_*_reg samples fp_*_i         @ clk_i                               _*_
-- exp_diff_reg samples exp_diff_i @ clk_i                               _*_
-- if rst_i is high, valid_reg samples 0      @ clk_i                    _*_
-- if rst_i is low, valid_reg samples valid_i @ clk_i                    _*_
+- check widths                                                          _*_ _*_
+- fp_*_reg samples fp_*_i         @ clk_i                               _*_ _*_
+- exp_diff_reg samples exp_diff_i @ clk_i                               _*_ _*_
+- if rst_i is high, valid_reg samples 0      @ clk_i                    _*_ _*_
+- if rst_i is low, valid_reg samples valid_i @ clk_i                    _*_ _*_
 
 Main:
-- check widths                                                          _*_                          
-- sign, exp and frac_ex starting values                                 _*_
+- check widths                                                          _*_ _*_                         
+- sign, exp and frac_ex starting values                                 _*_ _*_
 
 then
 
 - since we are raising fp_b_exp to fp_a_exp, we set fp_b_exp to
-  fp_a_exp                                                              _*_
+  fp_a_exp                                                              _*_ _*_
 
 then
 
 - frac ex consists of [carry bit | lead bit | frac bits | round bit ]   
-    - we know the carry bit is zero (from sgm)                          _*_
-    - that means, if we shift by frac bits + 1, the lead bit can end up _*_
+    - we know the carry bit is zero (from sgm)                          _*_ _*_
+    - that means, if we shift by frac bits + 1, the lead bit can end up _*_ _*_
       at the round bit
-    - if we shift more than frac bits + 1, the result will be 0         _*_
-    - hence only shift by exp_diff_reg bits if it is <= frac_bits + 1,  _*_
-    - otherwise, set it to 0                                            _*_
-    - a logical shift '>>' is correct here                              _*_
-    - the idea is, for increasing the exponent by 1, we have to divide  _*_
+    - if we shift more than frac bits + 1, the result will be 0         _*_ _*_
+    - hence only shift by exp_diff_reg bits if it is <= frac_bits + 1,  _*_ _*_
+    - otherwise, set it to 0                                            _*_ _*_
+    - a logical shift '>>' is correct here                              _*_ _*_
+    - the idea is, for increasing the exponent by 1, we have to divide  _*_ _*_
       the frac ex by 2, hence the right shifting
     - exp_diff_reg must be declared as unsigned, since there is
-      potential ambiguity of negative right shift (that could also      _*_
-      cost more hardware)                                               
+      potential ambiguity of negative right shift (that could also      _*_ _*_
+      cost more hardware), adn the <= comparison aswell.                                               
 
 Output:
-- fp_*_o is the concatenation of the fp_*_sign, fp_*_exp,               _*_
+- fp_*_o is the concatenation of the fp_*_sign, fp_*_exp,               _*_ _*_
   fp_*_frac_ex.                                 
-- valid_o is valid_reg                                                  _*_
+- valid_o is valid_reg                                                  _*_ _*_
 
 Log:
-- ngm has been verfied once by me (7/8/25)
+- ngm has been verified by me (7/8/25)
+- ngm has been verified by me (7/14/25)
 
 
 

@@ -344,7 +344,7 @@ module rnv #(
         fp_b_exp     = fp_b_reg[EXP_IDX_MSB : EXP_IDX_LSB];
         fp_b_frac_ex = fp_b_reg[FRAC_EX_IDX_MSB : FRAC_EX_IDX_LSB];
 
-        if(fp_b_frac_ex[0]) fp_b_frac_ex = fp_b_frac_ex + 1;
+        //if(fp_b_frac_ex[0]) fp_b_frac_ex = fp_b_frac_ex + 1;
     end
 
 
@@ -672,12 +672,14 @@ module nr #(
         fp_exp     = fp_i[EXP_IDX_MSB : EXP_IDX_LSB];
         fp_frac_ex = fp_i[FRAC_EX_IDX_MSB : FRAC_EX_IDX_LSB];
 
-        fp_exp_const = fp_exp;
-        fp_exp_const = fp_frac_ex;
+        fp_exp_const = fp_exp[EXP_WIDTH - 1 : 0];
+        fp_frac_ex_const = fp_frac_ex;
 
         if(fp_frac_ex_const[CARRY_IDX]) begin
             fp_frac_ex = fp_frac_ex_const >> 1;
             fp_exp = fp_exp_const + 1;
+        end else if (fp_frac_ex_const[LEAD_IDX]) begin
+            // do nothing
         end else begin
             for(int i = 0; i < LEAD_IDX; i++) begin
                 if(fp_frac_ex_const[i]) begin
@@ -768,7 +770,7 @@ module rr #(
         fp_exp     = fp_i[EXP_IDX_MSB : EXP_IDX_LSB];
         fp_frac_ex = fp_i[FRAC_EX_IDX_MSB : FRAC_EX_IDX_LSB];
 
-        fp_exp_const = fp_exp;
+        fp_exp_const = fp_exp[EXP_WIDTH - 1 : 0];
 
         if(fp_frac_ex[ROUND_IDX]) begin
             fp_frac_ex = fp_frac_ex + 1; 
@@ -834,9 +836,9 @@ module floating_point_adder #(
 
     ////////////////////////////////////////////////////////////////
     // 2 -  ngm
-    logic [FP_WIDTH_TOT - 1 : 0] ngm_rnv_fp_a_w;
-    logic [FP_WIDTH_TOT - 1 : 0] ngm_rnv_fp_b_w;
-    logic                        ngm_rnv_valid_w;
+    logic [FP_WIDTH_TOT - 1 : 0] ngm_cvt_fp_a_w;
+    logic [FP_WIDTH_TOT - 1 : 0] ngm_cvt_fp_b_w;
+    logic                        ngm_cvt_valid_w;
 
     ngm #(
         .EXP_WIDTH(EXP_WIDTH),
@@ -850,35 +852,13 @@ module floating_point_adder #(
         .exp_diff_i(sgm_ngm_exp_diff_w),
         .valid_i(sgm_ngm_valid_w),
 
-        .fp_a_o(ngm_rnv_fp_a_w),
-        .fp_b_o(ngm_rnv_fp_b_w),
-        .valid_o(ngm_rnv_valid_w)
+        .fp_a_o(ngm_cvt_fp_a_w),
+        .fp_b_o(ngm_cvt_fp_b_w),
+        .valid_o(ngm_cvt_valid_w)
     );
 
     ////////////////////////////////////////////////////////////////
-    // 3 - rnv
-    logic [FP_WIDTH_TOT - 1 : 0] rnv_cvt_fp_a_w;
-    logic [FP_WIDTH_TOT - 1 : 0] rnv_cvt_fp_b_w;
-    logic                        rnv_cvt_valid_w;
-
-    rnv #(
-        .EXP_WIDTH(EXP_WIDTH),
-        .FRAC_WIDTH(FRAC_WIDTH)
-    ) rnv_inst (
-        .clk_i(clk_i),
-        .rst_i(rst_i),
-
-        .fp_a_i(ngm_rnv_fp_a_w),
-        .fp_b_i(ngm_rnv_fp_b_w),
-        .valid_i(ngm_rnv_valid_w),
-
-        .fp_a_o(rnv_cvt_fp_a_w),
-        .fp_b_o(rnv_cvt_fp_b_w),
-        .valid_o(rnv_cvt_valid_w)
-    );
-
-    ////////////////////////////////////////////////////////////////
-    // 4 - cvt 
+    // 3 - cvt 
     logic [FP_WIDTH_TOT - 1 : 0] cvt_avt_fp_a_w;
     logic [FP_WIDTH_TOT - 1 : 0] cvt_avt_fp_b_w;
     logic                        cvt_avt_valid_w;
@@ -890,9 +870,9 @@ module floating_point_adder #(
         .clk_i(clk_i),
         .rst_i(rst_i),
 
-        .fp_a_i(rnv_cvt_fp_a_w),
-        .fp_b_i(rnv_cvt_fp_b_w),
-        .valid_i(rnv_cvt_valid_w),
+        .fp_a_i(ngm_cvt_fp_a_w),
+        .fp_b_i(ngm_cvt_fp_b_w),
+        .valid_i(ngm_cvt_valid_w),
 
         .fp_a_o(cvt_avt_fp_a_w),
         .fp_b_o(cvt_avt_fp_b_w),
@@ -900,7 +880,7 @@ module floating_point_adder #(
     );
 
     ////////////////////////////////////////////////////////////////
-    // 5 - avt
+    // 4 - avt
     logic [FP_WIDTH_TOT - 1 : 0] avt_cvu_fp_w;
     logic                        avt_cvu_fp_a_sign_w;
     logic                        avt_cvu_fp_b_sign_w;
@@ -924,7 +904,7 @@ module floating_point_adder #(
     );
 
     ////////////////////////////////////////////////////////////////
-    // 6 - cvu 
+    // 5 - cvu 
     logic [FP_WIDTH_TOT - 1 : 0] cvu_nr_fp_w;
     logic                        cvu_nr_valid_w;
 
@@ -945,7 +925,7 @@ module floating_point_adder #(
     );
 
     ////////////////////////////////////////////////////////////////
-    // 7 - nr 
+    // 6 - nr 
     logic [FP_WIDTH_TOT - 1 : 0] nr_rr_fp_w;
     logic                        nr_rr_valid_w;
 
@@ -964,7 +944,7 @@ module floating_point_adder #(
     );
 
     ////////////////////////////////////////////////////////////////
-    // 8 - rr
+    // 7 - rr
     logic [FP_WIDTH_REG - 1 : 0] rr_o_fp_w;
     logic                        rr_o_valid_w;
 

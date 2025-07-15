@@ -9,9 +9,9 @@ class FpGenerator32 #(type T);
     endfunction
     
     task automatic run();
-        real a_r = 3;
-        real b_r = 1;
-        real r_r = 0;
+        shortreal a_r = -3.140023;
+        shortreal b_r = 77.0020003;
+        shortreal r_r = 0;
         logic [FP_WIDTH_REG - 1 : 0] a = $shortrealtobits(a_r);
         logic [FP_WIDTH_REG - 1 : 0] b = $shortrealtobits(b_r);
         logic [FP_WIDTH_REG - 1 : 0] r = $shortrealtobits(r_r);

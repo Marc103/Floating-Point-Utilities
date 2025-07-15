@@ -115,9 +115,14 @@ module floating_point_adder_32_tb();
         monitor_out_broadcast.add_queue(scoreboard_in_queue_dut);
         golden_out_broadcast.add_queue(scoreboard_in_queue_golden);
 
+        ////////////////////////////////////////////////////////////////
+        // Set up dump 
         $dumpfile("waves.vcd");
         $dumpvars(0, floating_point_adder_32_tb);
 
+        ////////////////////////////////////////////////////////////////
+        // Reset logic
+        bfm.valid_i <= 0;
         rst <= 0;
         repeat(5) @(posedge clk)
         rst <= 1;

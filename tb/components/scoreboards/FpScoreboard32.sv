@@ -21,9 +21,12 @@ class FpScoreboard32 #(type T);
             $display("Scoreboard comparing!");
             if(floating_points_golden.r == floating_points_dut.r) begin
                 $display("Yay");
+                $display($bitstoshortreal(floating_points_golden.r));
+                $display($bitstoshortreal(floating_points_dut.r));
             end else begin
                 $display("Error expected: %h got %h", floating_points_golden.r, floating_points_dut.r);
                 $display($bitstoshortreal(floating_points_golden.r));
+                $display($bitstoshortreal(floating_points_dut.r));
             end
         end
 
