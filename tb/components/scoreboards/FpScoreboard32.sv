@@ -18,13 +18,13 @@ class FpScoreboard32 #(type T);
         forever begin
             in_queue_dut.pop(floating_points_dut);
             in_queue_golden.pop(floating_points_golden);
-            $display("Scoreboard comparing!");
             if(floating_points_golden.r == floating_points_dut.r) begin
-                $display("Yay");
-                $display($bitstoshortreal(floating_points_golden.r));
-                $display($bitstoshortreal(floating_points_dut.r));
+                
             end else begin
                 $display("Error expected: %h got %h", floating_points_golden.r, floating_points_dut.r);
+                $display("A, B: %h %h",floating_points_golden.a, floating_points_golden.b);
+                $display($bitstoshortreal(floating_points_golden.a));
+                $display($bitstoshortreal(floating_points_golden.b));
                 $display($bitstoshortreal(floating_points_golden.r));
                 $display($bitstoshortreal(floating_points_dut.r));
             end

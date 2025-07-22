@@ -17,7 +17,6 @@ class FpMonitor32 #(type T, type I);
             @(negedge inf.clk_i);
             if(inf.valid_o) begin
                 floating_points = new(0, 0, inf.fp_o);
-                $display("Monitor found result!");
                 out_broadcaster.push(floating_points);
             end
         end

@@ -344,7 +344,7 @@ module rnv #(
         fp_b_exp     = fp_b_reg[EXP_IDX_MSB : EXP_IDX_LSB];
         fp_b_frac_ex = fp_b_reg[FRAC_EX_IDX_MSB : FRAC_EX_IDX_LSB];
 
-        //if(fp_b_frac_ex[0]) fp_b_frac_ex = fp_b_frac_ex + 1;
+        if(fp_b_frac_ex[0]) fp_b_frac_ex = fp_b_frac_ex + 1;
     end
 
 
@@ -583,9 +583,9 @@ module cvu #(
     logic [FRAC_EX_WIDTH - 1 : 0] fp_frac_ex;
     
     always_comb begin
-        fp_sign    = fp_i[SIGN_IDX];
-        fp_exp     = fp_i[EXP_IDX_MSB : EXP_IDX_LSB];
-        fp_frac_ex = fp_i[FRAC_EX_IDX_MSB : FRAC_EX_IDX_LSB];
+        fp_sign    = fp_reg[SIGN_IDX];
+        fp_exp     = fp_reg[EXP_IDX_MSB : EXP_IDX_LSB];
+        fp_frac_ex = fp_reg[FRAC_EX_IDX_MSB : FRAC_EX_IDX_LSB];
 
         if(fp_a_sign_reg != fp_b_sign_reg) begin
             if(fp_frac_ex[CARRY_IDX]) begin 
@@ -668,9 +668,9 @@ module nr #(
     logic          [FRAC_EX_WIDTH - 1 : 0] fp_frac_ex_const;
 
     always_comb begin
-        fp_sign    = fp_i[SIGN_IDX];
-        fp_exp     = fp_i[EXP_IDX_MSB : EXP_IDX_LSB];
-        fp_frac_ex = fp_i[FRAC_EX_IDX_MSB : FRAC_EX_IDX_LSB];
+        fp_sign    = fp_reg[SIGN_IDX];
+        fp_exp     = fp_reg[EXP_IDX_MSB : EXP_IDX_LSB];
+        fp_frac_ex = fp_reg[FRAC_EX_IDX_MSB : FRAC_EX_IDX_LSB];
 
         fp_exp_const = fp_exp[EXP_WIDTH - 1 : 0];
         fp_frac_ex_const = fp_frac_ex;
@@ -766,12 +766,12 @@ module rr #(
     
 
     always_comb begin
-        fp_sign    = fp_i[SIGN_IDX];
-        fp_exp     = fp_i[EXP_IDX_MSB : EXP_IDX_LSB];
-        fp_frac_ex = fp_i[FRAC_EX_IDX_MSB : FRAC_EX_IDX_LSB];
+        fp_sign    = fp_reg[SIGN_IDX];
+        fp_exp     = fp_reg[EXP_IDX_MSB : EXP_IDX_LSB];
+        fp_frac_ex = fp_reg[FRAC_EX_IDX_MSB : FRAC_EX_IDX_LSB];
 
         fp_exp_const = fp_exp[EXP_WIDTH - 1 : 0];
-
+        
         if(fp_frac_ex[ROUND_IDX]) begin
             fp_frac_ex = fp_frac_ex + 1; 
         end
