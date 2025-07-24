@@ -21,9 +21,9 @@ class FpGenerator32 #(type T);
         logic [FP_FRAC_WIDTH - 1 : 0] b_frac;
 
         logic [FP_WIDTH_REG - 1 : 0] r = 0;
-        /*
-        for(int e_a = 1; e_a < (2**FP_EXP_WIDTH); e_a++) begin
-            for(int e_b = 1; e_b < (2**FP_EXP_WIDTH); e_b++) begin
+        
+        for(int e_a = 127; e_a < (2**FP_EXP_WIDTH); e_a++) begin
+            for(int e_b = 127; e_b < (2**FP_EXP_WIDTH); e_b++) begin
                 for(int s_a = 0; s_a < 2; s_a++) begin
                     for(int s_b = 0; s_b < 2; s_b++) begin
                         a_exp = e_a[FP_EXP_WIDTH - 1 : 0];
@@ -38,10 +38,12 @@ class FpGenerator32 #(type T);
                 end
             end
         end
-        */
-        a = 32'h80f5c3b0;
-        b = 32'h0b5d4382;
-        r = 32'h0b5d437a;
+        $display("All values generated.");
+        
+        
+        a = 32'b0_0111_1111_00000000000000000000000;
+        b = 32'b1_0110_0111_10000000000000000000000;
+        r = 0;
         points = new(a, b, r);
         out_broadcaster.push(points);
         

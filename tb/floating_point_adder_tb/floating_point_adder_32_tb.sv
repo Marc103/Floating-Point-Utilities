@@ -138,7 +138,7 @@ module floating_point_adder_32_tb();
             //watchdog.run();
         join_none
 
-        #1000;
+        #262200;
         $finish;
     end
 

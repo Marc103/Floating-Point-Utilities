@@ -67,7 +67,8 @@ then
       the frac ex by 2, hence the right shifting
     - exp_diff_reg must be declared as unsigned, since there is
       potential ambiguity of negative right shift (that could also      _*_ _*_
-      cost more hardware), adn the <= comparison aswell.                                               
+      cost more hardware), adn the <= comparison aswell.       
+                                            
 
 Output:
 - fp_*_o is the concatenation of the fp_*_sign, fp_*_exp,               _*_ _*_

@@ -11,6 +11,16 @@ the cost in hardware isn't worth the 'gradual' descent into subnormal,
 if even smaller values are required, use more exponent bits. Adding
 a single exponent bit expands the range by 2^2^x.
 
+A second modification is then rather than adding two huge numbers
+with a bunch of zeros padded (for the larger exponent one), i limit it just
+to the round bit (see below 'total form'). In effective this makes no 
+difference when adding two values of the same sign. But when different, the
+result is often rounded up instead of down since negative values will
+become smaller then they actually are. For example, 1.51 being 1.5 is fine for same
+sign addition, but -1.51 being -1.5 means that a result will land on a .5 mark
+causing it to be rounded up when reality it should land on smaller then .5 mark, 
+which would correctly cause it to round down.
+
 The total number of bits including the sign bit is
 1 + EXP_WIDTH + FRAC_WIDTH.
 
