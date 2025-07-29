@@ -117,8 +117,8 @@ module floating_point_adder_32_tb();
 
         ////////////////////////////////////////////////////////////////
         // Set up dump 
-        $dumpfile("waves.vcd");
-        $dumpvars(0, floating_point_adder_32_tb);
+        //$dumpfile("waves.vcd");
+        //$dumpvars(0, floating_point_adder_32_tb);
 
         ////////////////////////////////////////////////////////////////
         // Reset logic
@@ -138,7 +138,7 @@ module floating_point_adder_32_tb();
             //watchdog.run();
         join_none
 
-        #262200;
+        #4000000000;
         $finish;
     end
 

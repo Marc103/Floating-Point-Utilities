@@ -22,18 +22,20 @@ class FpGenerator32 #(type T);
 
         logic [FP_WIDTH_REG - 1 : 0] r = 0;
         
-        for(int e_a = 127; e_a < (2**FP_EXP_WIDTH); e_a++) begin
-            for(int e_b = 127; e_b < (2**FP_EXP_WIDTH); e_b++) begin
-                for(int s_a = 0; s_a < 2; s_a++) begin
-                    for(int s_b = 0; s_b < 2; s_b++) begin
-                        a_exp = e_a[FP_EXP_WIDTH - 1 : 0];
-                        a_frac = $urandom;
-                        a = {{s_a[0]}, a_exp, a_frac};
-                        b_exp = e_b[FP_EXP_WIDTH - 1 : 0];
-                        b_frac = $urandom;
-                        b = {{s_b[0]}, b_exp, b_frac};
-                        points = new(a, b, r);
-                        out_broadcaster.push(points);
+        for(int i = 0; i < 1; i++) begin
+            for(int e_a = 0; e_a < (2**FP_EXP_WIDTH); e_a++) begin
+                for(int e_b = 0; e_b < (2**FP_EXP_WIDTH); e_b++) begin
+                    for(int s_a = 0; s_a < 2; s_a++) begin
+                        for(int s_b = 0; s_b < 2; s_b++) begin
+                            a_exp = e_a[FP_EXP_WIDTH - 1 : 0];
+                            a_frac = $urandom;
+                            a = {{s_a[0]}, a_exp, a_frac};
+                            b_exp = e_b[FP_EXP_WIDTH - 1 : 0];
+                            b_frac = $urandom;
+                            b = {{s_b[0]}, b_exp, b_frac};
+                            points = new(a, b, r);
+                            out_broadcaster.push(points);
+                        end
                     end
                 end
             end
