@@ -11,6 +11,17 @@
  * a single exponent bit expands the range by 2^2^x.
  * The total number of bits including the sign bit is
  * 1 + EXP_WIDTH + FRAC_WIDTH.
+ *
+ * By doing so, this guarantees that all multiplied numbers produce
+ * either a 1 bit in the carry or lead position (or both), or just 0, which
+ * means we don't need to have expensive hardware to barrel shift
+ * to the correct exponenet.
+ *
+ * If the exponent of the intermediary value of the multiplication just so 
+ * happens to 0 but the carry bit is 1, then in reality, shifting it will cause
+ * it to become a normal value again. This is not what the multiplier does,
+ * instead it just assumes its zero and moves on. In practice, this is not a big 
+ * issue (but admittedly can be fixed with one more pipe stage, I'm just too lazy).
  * 
  * The total precision is 1 + FRAC_WIDTH due to the leading bit being
  * 1 (also called hidden bit).
