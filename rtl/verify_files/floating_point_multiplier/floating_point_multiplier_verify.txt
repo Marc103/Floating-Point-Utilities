@@ -86,7 +86,9 @@ then
     - set fp mult as 0                                                          _*_
   - overflow / Infinity/NaN: >= BIAS + 1,                                       _*_
     - set exp as 2^(EXP_WIDTH - 1) = BIAS + 1                                   _*_
-    - set fp mult as 0                                                          _*_
+    - set fp mult as 0
+- but what if the carry bit is 1? See the general_desc doc (this is another modification) _*_
+- if either exp is originally INF, maintain INF                                 _*_                                     
 - the largest underflow is 2 * -(2^(EXP_WIDTH - 1) - 2) = -2^EXP_WIDTH + 4      _*_
 - the largest overflow is  2 * 2^(EXP_WIDTH - 1) = 2^EXP_WIDTH                  _*_
 - both of these values fit in the signed exponent which is 2 bits wider         _*_

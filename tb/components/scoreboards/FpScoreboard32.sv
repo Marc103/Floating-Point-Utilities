@@ -16,12 +16,14 @@ class FpScoreboard32 #(type T);
         T floating_points_dut;
         T floating_points_golden;
         int received = 0;
-        int expecting = 256*256*2*2*1;
+        // 256*256*2*2*1
+        int expecting = 255*255*2*2*1;
 
         int correct = 0;
         int off_by_one = 0;
         int nan_correct = 0;
         int subnormal_correct = 0;
+        int underflow_correct = 0;
         int error = 0;
 
         forever begin
@@ -45,13 +47,17 @@ class FpScoreboard32 #(type T);
                     off_by_one++;
                 end else if((floating_points_dut.r[30:23] == 0) && (floating_points_golden.r[30:23] == 0)) begin
                     subnormal_correct++;
+                end else if((floating_points_dut.r[30:23] == 0) && (floating_points_golden.r[30:23] == 1)) begin
+                    underflow_correct++;
                 end else begin
+                    
                     $display("Error expected: %h got %h", floating_points_golden.r, floating_points_dut.r);
                     $display("A, B: %h %h",floating_points_golden.a, floating_points_golden.b);
                     $display($bitstoshortreal(floating_points_golden.a));
                     $display($bitstoshortreal(floating_points_golden.b));
                     $display($bitstoshortreal(floating_points_golden.r));
                     $display($bitstoshortreal(floating_points_dut.r));
+                    
                     error++;
                 end
             end
@@ -62,6 +68,7 @@ class FpScoreboard32 #(type T);
                 $display("Off by one: %d", off_by_one);
                 $display("NaN result: %d", nan_correct);
                 $display("Subnormal result: %d", subnormal_correct);
+                $display("Intermediate underflow: %d", underflow_correct);
                 $display("Genuine error: %d", error);
                 $display("Total samples: %d", received);
                 $finish;

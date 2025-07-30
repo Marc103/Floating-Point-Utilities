@@ -157,10 +157,14 @@
             fp_mult = 0;
         end
 
+        if((fp_a_exp == EXP_MAX) || (fp_b_exp == EXP_MAX)) begin
+            fp_exp_s = BIAS + 1;
+        end
+
         fp_sign    = fp_a_sign ^ fp_b_sign;
         fp_exp_s   = fp_exp_s + BIAS;
         fp_exp     = fp_exp_s[EXP_WIDTH - 1 : 0];
-        fp_frac_ex = fp_mult[FRAC_EX_WIDTH + FRAC_EX_WIDTH - 1 : FRAC_EX_WIDTH];    
+        fp_frac_ex = fp_mult[FRAC_EX_MULT_WIDTH - 2 - 1 : FRAC_EX_WIDTH - 2];    
 
     end
     
@@ -190,7 +194,7 @@
         fp_exp_1     = fp_exp_reg;
         fp_frac_ex_1 = fp_frac_ex_reg; 
 
-        if(fp_frac_ex_1[FRAC_EX_WIDTH]) begin
+        if(fp_frac_ex_1[FRAC_EX_WIDTH - 1]) begin
             fp_frac_ex_1 = fp_frac_ex_1 >> 1;
             if(fp_exp_1 != EXP_MAX) begin
                 fp_exp_1 = fp_exp_1 + 1;
@@ -201,7 +205,7 @@
             fp_frac_ex_1 = fp_frac_ex_1 + 1;
         end
 
-        if(fp_frac_ex_1[FRAC_EX_WIDTH]) begin
+        if(fp_frac_ex_1[FRAC_EX_WIDTH - 1]) begin
             fp_frac_ex_1 = fp_frac_ex_1 >> 1;
             if(fp_exp_1 != EXP_MAX) begin
                 fp_exp_1 = fp_exp_1 + 1;

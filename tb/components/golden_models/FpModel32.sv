@@ -1,6 +1,6 @@
 import utilities_pkg::*;
 
-class FpModel32 #(type T);
+class FpModel32 #(type T, parameter OP = 0);
     localparam FP_WIDTH_REG = 32;
     TriggerableQueue #(T) in_queue;
     TriggerableQueueBroadcaster #(T) out_broadcaster;
@@ -26,7 +26,13 @@ class FpModel32 #(type T);
             in_queue.pop(floating_points);
             a = $bitstoshortreal(floating_points.a);
             b = $bitstoshortreal(floating_points.b);
-            r = a + b;
+            if(OP == 0) begin
+                r = a + b;
+            end else if (OP == 1) begin
+                r = a * b;
+            end else if (OP == 2) begin
+                r = a / b;
+            end
             a_bits = $shortrealtobits(a);
             b_bits = $shortrealtobits(b);
             r_bits = $shortrealtobits(r);
