@@ -112,5 +112,5 @@ Output:
 - valid_o is valid_reg_1                                                        _*_
 
 Log:
-- ngm has been verified by me (7/30/25) 
+- floating point multiplier has been verified by me (7/30/25) 
     
