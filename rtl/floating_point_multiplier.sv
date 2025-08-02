@@ -49,6 +49,11 @@
  * is most convenient. Originally I wanted to call it 'Full form' but that abbreviates as FF
  * which can be confused with flip-flop.
  *
+ * Dispute:
+ * 0xc3980000 multiplied by 0x89f4a330
+ * gives 0x0e1140e4
+ * but after investigating, I disagree, it should be
+ * 0x0e1140e5
  */
 
  module floating_point_multiplier #(

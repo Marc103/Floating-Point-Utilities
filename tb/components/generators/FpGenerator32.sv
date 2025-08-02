@@ -22,7 +22,7 @@ class FpGenerator32 #(type T);
 
         logic [FP_WIDTH_REG - 1 : 0] r = 0;
         
-        for(int i = 0; i < 1; i++) begin
+        for(int i = 0; i < 80; i++) begin
             for(int e_a = 1; e_a < (2**FP_EXP_WIDTH); e_a++) begin
                 for(int e_b = 1; e_b < (2**FP_EXP_WIDTH); e_b++) begin
                     for(int s_a = 0; s_a < 2; s_a++) begin
@@ -43,8 +43,8 @@ class FpGenerator32 #(type T);
         $display("All values generated.");
         
         
-        a = $shortrealtobits(3.14);
-        b = $shortrealtobits(3.14);
+        a = 32'hc3980000;
+        b = 32'h89f4a330;
         r = 0;
         points = new(a, b, r);
         out_broadcaster.push(points);

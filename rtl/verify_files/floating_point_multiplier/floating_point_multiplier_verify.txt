@@ -2,7 +2,7 @@ Multiply Two Floating Point Numbers
 
 Specification:
 - given two fp numbers, fp_a_i and fp_b_i, multiply them together and
-produce fp_ao
+produce fp_o
 
 Descriptions:
 - frac ex (expand) describes carry bit, lead bit, frac bits and round bit

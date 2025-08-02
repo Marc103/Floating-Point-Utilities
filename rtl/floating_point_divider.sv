@@ -1,4 +1,4 @@
-/* Floating Point Multiplier
+/* Floating Point Divider
  * Follows the IEEE 754 specification (almost) but has been parameterized
  * so that you can adjust how many exponent bits and fraction bits
  * you want.
@@ -16,6 +16,12 @@
  * either are 1, or just 0 (with fractional bits being zero). This minimizes
  * any amount of shifting as the smallest value produced would only have
  * to be shift once (not including x/0, 0/x and 0/0 whic have to be handled)
+ *
+ * Similar to multiplier, it is possible for a result to be exactly
+ * at EXP_MAX, but the left shift would make it a valid number since 
+ * the exponent would decrease by one. My divider doesn't deal with 
+ * this. In summary, if the intermediary result goes to infinity,
+ * it stays at infinity even if such a case would bring it back.
  * 
  * The total precision is 1 + FRAC_WIDTH due to the leading bit being
  * 1 (also called hidden bit).
@@ -63,7 +69,7 @@ module floating_point_divider #(
     parameter FRAC_EX_MULT_WIDTH = 2 * FRAC_EX_WIDTH,
     parameter BIAS = 2**(EXP_WIDTH - 1) - 1,
     parameter EXP_MAX = 2**EXP_WIDTH - 1,
-    parameter FRAC_DIV_WIDTH = FRAC_EX_WIDTH + 1
+    parameter FRAC_DIV_WIDTH = FRAC_EX_WIDTH + 2
 
 ) (
     input clk_i,
@@ -152,19 +158,12 @@ module floating_point_divider #(
             fp_b_zero = 1;
         end
 
-        // setting frac_ex and zero condition
+        // setting frac_ex
         fp_a_frac_ex = {fp_a_carry, fp_a_lead, fp_a_frac, fp_a_round};
-        fp_a_frac_div = {1'b0, fp_a_frac_ex};
+        fp_a_frac_div = {1'b0, fp_a_frac_ex, 1'b0};
         fp_b_frac_ex = {fp_b_carry, fp_b_lead, fp_b_frac, fp_b_round};
-        fp_b_frac_div = {1'b0, fp_b_frac_ex};
+        fp_b_frac_div = {1'b0, fp_b_frac_ex, 1'b0};
         fp_quotient_start = 0;
-        
-        if(fp_a_frac == 0) begin
-            fp_a_zero = 1;
-        end
-        if(fp_b_frac == 0) begin
-            fp_b_zero = 1;
-        end
 
         // exponent calculations
         fp_a_exp_s = {2'b00, fp_a_exp};
@@ -173,13 +172,11 @@ module floating_point_divider #(
         fp_a_exp_s = fp_a_exp_s - BIAS;
         fp_b_exp_s = fp_b_exp_s - BIAS;
 
-        fp_exp_s = fp_a_exp_s + fp_b_exp_s;
+        fp_exp_s = fp_a_exp_s - fp_b_exp_s;
         if(fp_exp_s <= (-BIAS)) begin
             fp_exp_s = -BIAS;
-            fp_mult  = 0;
         end else if (fp_exp_s >= (BIAS + 1)) begin
             fp_exp_s = BIAS + 1;
-            fp_mult = 0;
         end
 
         if((fp_a_exp == EXP_MAX) || (fp_b_exp == EXP_MAX)) begin
@@ -218,9 +215,9 @@ module floating_point_divider #(
     logic                          valid_w    [FRAC_EX_WIDTH];
 
     generate
-        for(genvar d = FRAC_EX_WIDTH - 1; d >= 0; d--) begin
+        for(genvar d = FRAC_DIV_WIDTH - 3; d >= 0; d--) begin
             // entry
-            if(d == (FRAC_EX_WIDTH - 1)) begin
+            if(d == (FRAC_DIV_WIDTH - 3)) begin
                 divider_part #(
                     .Q_IDX(d),
                     .WIDTH(FRAC_DIV_WIDTH)
@@ -233,10 +230,10 @@ module floating_point_divider #(
                     .divisor_i (fp_b_frac_div),
                     .valid_i   (valid_reg),
 
-                    .quotient_o(quotient_w[FRAC_EX_WIDTH - 1 - d]),
-                    .dividend_o(dividend_w[FRAC_EX_WIDTH - 1 - d]),
-                    .divisor_o (divisor_w [FRAC_EX_WIDTH - 1 - d]),
-                    .valid_o   (valid_w   [FRAC_EX_WIDTH - 1 - d])
+                    .quotient_o(quotient_w[FRAC_DIV_WIDTH - 3 - d]), 
+                    .dividend_o(dividend_w[FRAC_DIV_WIDTH - 3 - d]),
+                    .divisor_o (divisor_w [FRAC_DIV_WIDTH - 3 - d]),
+                    .valid_o   (valid_w   [FRAC_DIV_WIDTH - 3 - d])
                 );
             end else begin
                 divider_part #(
@@ -246,15 +243,15 @@ module floating_point_divider #(
                     .clk_i(clk_i),
                     .rst_i(rst_i),
 
-                    .quotient_i(quotient_w[FRAC_EX_WIDTH - 1 - d - 1]),
-                    .dividend_i(dividend_w[FRAC_EX_WIDTH - 1 - d - 1]),
-                    .divisor_i (divisor_w [FRAC_EX_WIDTH - 1 - d - 1]),
-                    .valid_i   (valid_w   [FRAC_EX_WIDTH - 1 - d - 1]),
+                    .quotient_i(quotient_w[FRAC_DIV_WIDTH - 3 - d - 1]),
+                    .dividend_i(dividend_w[FRAC_DIV_WIDTH - 3 - d - 1]),
+                    .divisor_i (divisor_w [FRAC_DIV_WIDTH - 3 - d - 1]),
+                    .valid_i   (valid_w   [FRAC_DIV_WIDTH - 3 - d - 1]),
 
-                    .quotient_o(quotient_w[FRAC_EX_WIDTH - 1 - d]),
-                    .dividend_o(dividend_w[FRAC_EX_WIDTH - 1 - d]),
-                    .divisor_o (divisor_w [FRAC_EX_WIDTH - 1 - d]),
-                    .valid_o   (valid_w   [FRAC_EX_WIDTH - 1 - d])
+                    .quotient_o(quotient_w[FRAC_DIV_WIDTH - 3 - d]),
+                    .dividend_o(dividend_w[FRAC_DIV_WIDTH - 3 - d]),
+                    .divisor_o (divisor_w [FRAC_DIV_WIDTH - 3 - d]),
+                    .valid_o   (valid_w   [FRAC_DIV_WIDTH - 3 - d])
                 );
             end
         end
@@ -262,42 +259,46 @@ module floating_point_divider #(
 
     ////////////////////////////////////////////////////////////////
     // Exit, Shift if necessary, Rounding and checking for Zeros
-    logic [FRAC_EX_WIDTH - 1 : 0] fp_frac_ex_result;
-    logic [EXP_WIDTH - 1 : 0]     fp_exp_result;
+    logic [FRAC_DIV_WIDTH - 1 : 0] fp_frac_div_result;
+    logic [EXP_WIDTH - 1 : 0]      fp_exp_result;
 
     always_comb begin
-        fp_frac_ex_result = quotient_w[FRAC_EX_WIDTH - 1];
-        if(!fp_frac_ex_result[FRAC_EX_WIDTH - 2]) begin
-            fp_frac_ex_result = fp_frac_ex_result << 1;
+        fp_frac_div_result = quotient_w [FRAC_EX_WIDTH - 1];
+        fp_exp_result     = fp_exp_pipe [FRAC_EX_WIDTH - 1];
+
+        if(!fp_frac_div_result[FRAC_DIV_WIDTH - 3]) begin
+            fp_frac_div_result = fp_frac_div_result << 1;
             if(fp_exp_result != 0) begin
                 fp_exp_result = fp_exp_result - 1;
             end
-        end else if(fp_frac_ex_result[0]) begin
-            fp_frac_ex_result = fp_frac_ex_result + 1;
-            if(fp_frac_ex_result[FRAC_EX_WIDTH - 1]) begin
-                fp_frac_ex_result = fp_frac_ex_result >> 1;
+        end 
+        
+        if(fp_frac_div_result[1]) begin
+            fp_frac_div_result = fp_frac_div_result + 2'b10;
+            if(fp_frac_div_result[FRAC_DIV_WIDTH - 1]) begin
+                fp_frac_div_result = fp_frac_div_result >> 1;
                 if(fp_exp_result != EXP_MAX) begin
                     fp_exp_result = fp_exp_result + 1;
                 end
             end
         end
 
+        if(fp_exp_result == 0) begin
+            fp_frac_div_result = 0;
+        end
+
         if(fp_a_zero_pipe[FRAC_EX_WIDTH - 1] && fp_b_zero_pipe[FRAC_EX_WIDTH - 1]) begin
             fp_exp_result = EXP_MAX;
-            fp_frac_ex_result = 0;
+            fp_frac_div_result = 0;
         end else if (fp_a_zero_pipe[FRAC_EX_WIDTH - 1] && (!fp_b_zero_pipe[FRAC_EX_WIDTH - 1])) begin
             fp_exp_result = 0;
-            fp_frac_ex_result = 0;
+            fp_frac_div_result = 0;
         end else if ((!fp_a_zero_pipe[FRAC_EX_WIDTH - 1]) && fp_b_zero_pipe[FRAC_EX_WIDTH - 1]) begin
             fp_exp_result = EXP_MAX;
-            fp_frac_ex_result = {FRAC_EX_WIDTH{1'b1}};
-        end else begin
-            if(fp_exp_result == 0) begin
-                fp_frac_result = 0;
-            end
-        end
+            fp_frac_div_result = {FRAC_DIV_WIDTH{1'b1}};
+        end 
     end
-    assign fp_o = {fp_sign_pipe[FRAC_EX_WIDTH - 1], fp_exp_result, fp_frac_ex_result[FRAC_EX_WIDTH - 2 - 1 : 1]};
+    assign fp_o = {fp_sign_pipe[FRAC_EX_WIDTH - 1], fp_exp_result, fp_frac_div_result[FRAC_DIV_WIDTH - 3 - 1 : 2]};
     assign valid_o = valid_w[FRAC_EX_WIDTH - 1];
 endmodule
 
@@ -308,10 +309,10 @@ module divider_part #(
     input clk_i,
     input rst_i,
 
-    input  [WIDTH - 1 : 0] quotient_i
+    input  [WIDTH - 1 : 0] quotient_i,
     input  [WIDTH - 1 : 0] dividend_i,
     input  [WIDTH - 1 : 0] divisor_i,
-    input                  valid_i
+    input                  valid_i,
 
     output [WIDTH - 1 : 0] quotient_o,
     output [WIDTH - 1 : 0] dividend_o,
