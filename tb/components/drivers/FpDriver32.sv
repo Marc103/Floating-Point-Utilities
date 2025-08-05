@@ -14,14 +14,14 @@ class FpDriver32 #(type T, type I);
     endfunction
 
     task automatic drive_fp(T floating_points);
-        this.inf.fp_a_i  <= floating_points.a;
-        this.inf.fp_b_i  <= floating_points.b;
-        this.inf.valid_i <= 1;
+        inf.fp_a_i  <= floating_points.a;
+        inf.fp_b_i  <= floating_points.b;
+        inf.valid_i <= 1;
         @(posedge this.inf.clk_i);
     endtask;
 
     task automatic invalidate();
-        this.inf.valid_i <= 0;
+        inf.valid_i <= 0;
     endtask;
 
     task automatic run();
@@ -34,5 +34,4 @@ class FpDriver32 #(type T, type I);
             invalidate();
         end
     endtask
-
 endclass

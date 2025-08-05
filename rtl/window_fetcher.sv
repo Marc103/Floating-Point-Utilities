@@ -1,6 +1,6 @@
 /* Window Fetcher 
  * Accepts an image of data in a streaming fashion and outputs the corresponding
- * window.
+ * window following the 'push in to push out' model.
  *
  * For values lying outside the image width, we extend the border with a constant set
  * by BORDER_EXTENSION_CONSTANT. Having this enabled uses more resources and increases
@@ -58,10 +58,10 @@ module window_fetcher #(
     parameter WINDOW_WIDTH                = 0,
     parameter WINDOW_HEIGHT               = 0,
     parameter WINDOW_WIDTH_CENTER_OFFSET  = 0,
-    parameter WINDOW_HEIGHT_CENTER_OFFSET = 0
+    parameter WINDOW_HEIGHT_CENTER_OFFSET = 0,
 
     parameter [DATA_WIDTH - 1] BORDER_EXTENSION_CONSTANT = 0,
-    parameter                  BORDER_ENABLE             = 0
+    parameter                  BORDER_ENABLE             = 0,
 
     ////////////////////////////////////////////////////////////////
     // Local parameters
@@ -75,7 +75,7 @@ module window_fetcher #(
     parameter WINDOW_HEIGHT_CENTER_START = (IMAGE_HEIGHT - 1) - WINDOW_HEIGHT_CENTER_REVERSE,
 
     parameter BUFFER_LINES = WINDOW_HEIGHT - 1,
-    parameter BUFFER_DEPTH = $clog2(WINDOW_WIDTH)
+    parameter BUFFER_DEPTH = $clog2(IMAGE_WIDTH)
 ) (
     input clk_i,
     input rst_i,
@@ -90,10 +90,10 @@ module window_fetcher #(
     output [15:0]               row_o,
     output                      valid_o
 );
-    logic [DATA_WIDTH - 1] data;
-    logic [15:0]           col;
-    logic [15:0]           row;
-    logic                  valid;
+    logic [DATA_WIDTH - 1 : 0] data;
+    logic [15 : 0]             col;
+    logic [15 : 0]             row;
+    logic                      valid;
     
     always_ff@(posedge clk_i) begin
         data <= data_i;
@@ -106,7 +106,7 @@ module window_fetcher #(
         end
     end       
     logic eof;
-    assign eof = (col == (IMAGE_WIDTH - 1)) && (row == (IMAGE_HEIGHT - 1));
+    assign eof = (col == (IMAGE_WIDTH - 1)) && (row == (IMAGE_HEIGHT - 1)) && valid;
 
     ////////////////////////////////////////////////////////////////
     // Control State
@@ -122,62 +122,38 @@ module window_fetcher #(
     logic [15:0] window_center_col_latent_next;
     logic [15:0] window_center_row_latent_next;
 
-    logic frame_received;
-    logic frame_received_next;
-   
+    logic initial_start;
+    logic initial_start_next;
+
     always_ff@(posedge clk_i) begin
         if(rst_i) begin
-            window_center_col        <= WINDOW_WIDTH_CENTER_START;
-            window_center_row        <= WINDOW_HEIGHT_CENTER_START;
-            window_center_col_latent <= WINDOW_WIDTH_CENTER_START;
-            window_center_row_latent <= WINDOW_HEIGHT_CENTER_START;
-            frame_recieved           <= 0;
+            window_center_col <= WINDOW_WIDTH_CENTER_START;
+            window_center_row <= WINDOW_HEIGHT_CENTER_START;
+            initial_start     <= 0;
         end else begin
-            window_center_row        <= window_center_row_next;
-            window_center_col        <= window_center_col_next;
-            window_center_col_latent <= window_center_col_latent_next;
-            window_center_row_latent <= window_center_row_latent_next;
-            frame_received           <= frame_received_next;
+            window_center_row <= window_center_row_next;
+            window_center_col <= window_center_col_next;
+            initial_start     <= initial_start_next;
         end
     end
 
     always_comb begin
-        window_center_col_next        = window_center_col;
-        window_center_row_next        = window_center_row;
-        window_center_col_latent_next = window_center_col_latent;
-        window_center_row_latent_next = window_center_row_latent;
-        frame_received_next           = frame_recieved;
+        window_center_col_next = window_center_col;
+        window_center_row_next = window_center_row;
+        initial_start_next     = initial_start;            
 
-        if(valid && frame_received) begin
-            window_center_col_latent_next = window_center_col_latent + 1;
-            if(window_center_col_latent == (IMAGE_WIDTH - 1)) begin
-                window_center_col_latent_next = 0;
-                window_center_row_latent_next = window_center_row_latent + 1;
-                if(window_center_row_latent == (IMAGE_HEIGHT - 1)) begin
-                        window_center_row_latent_next = 0;
-                end
-            end
-        end
-
-        if(valid || frame_received) begin
-            window_center_col_next = window_center + 1;
+        if(valid) begin
+            window_center_col_next = window_center_col + 1;
             if(window_center_col == (IMAGE_WIDTH - 1)) begin
                 window_center_col_next = 0;
-                window_center_row_next = window_row_center + 1;
+                window_center_row_next = window_center_row + 1;
                 if(window_center_row == (IMAGE_HEIGHT - 1)) begin
                     window_center_row_next = 0;
-                    if(frame_received) begin
-                        frame_received_next           = 0;
-                        window_center_col_next        = window_center_col_latent_next;
-                        window_center_row_next        = window_center_row_latent_next;
-                        window_center_col_latent_next = WINDOW_WIDTH_CENTER_START;
-                        window_center_row_latent_next = WINDOW_HEIGHT_CENTER_START;
-                    end
                 end
-            end 
-            if(eof) begin
-                frame_received_next = 1;
             end
+            if((window_center_col == (IMAGE_WIDTH - 1)) && (window_center_row == (IMAGE_HEIGHT - 1))) begin
+                initial_start_next = 1;
+            end 
         end
     end
 
@@ -185,7 +161,7 @@ module window_fetcher #(
     // Window Shift Registers and Buffers
     logic [DATA_WIDTH - 1 : 0] window_reversed [WINDOW_HEIGHT][WINDOW_WIDTH];
     logic [DATA_WIDTH - 1 : 0] window          [WINDOW_HEIGHT][WINDOW_WIDTH];
-
+    
     logic [15:0] pointer_separation;
     logic [15:0] pointer_separation_next;
 
@@ -219,28 +195,33 @@ module window_fetcher #(
                 pointer_separation_next = pointer_separation + 1;
             end
         end
+
+        w_data[0] = data;
+        for(int r = 1; r < WINDOW_HEIGHT; r++) begin
+            w_data[r] = w_data[r];
+        end
     end
 
-    always_ff@(clk_i) begin
+    always_ff@(posedge clk_i) begin
         if(rst_i) begin
             for(int r = 0; r < WINDOW_HEIGHT; r++) begin
                 for(int c = 0; c < WINDOW_WIDTH; c++) begin
-                    window_reversed[r][c] = 0;
+                    window_reversed[r][c] <= 0;
                 end
             end
-        end begin
-            if(valid)
+        end else begin
+            if(valid) begin
+                window_reversed[0][0] <= data;
                 for(int r = 0; r < WINDOW_HEIGHT; r++) begin
                     for(int c = 1; c < WINDOW_WIDTH; c++) begin
                         window_reversed[r][c] <= window_reversed[r][c-1];
                     end
                 end
-                window_reversed[0][0] <= data;
                 for(int r = 1; r < WINDOW_HEIGHT; r++) begin
-                    window_reversed[r][0] <= r_data[r-1] 
+                    window_reversed[r][0] <= r_data[r-1]; 
                 end
 
-            else begin
+            end else begin
                 for(int r = 0; r < WINDOW_HEIGHT; r++) begin
                     for(int c = 0; c < WINDOW_WIDTH; c++) begin
                         window_reversed[r][c] <= window_reversed[r][c];
@@ -251,7 +232,7 @@ module window_fetcher #(
     end
 
     generate 
-        (genvar b = 0; b < BUFFER_LINES; b++) begin
+        for(genvar b = 0; b < BUFFER_LINES; b++) begin
             async_fifo #(
                 .DSIZE(DATA_WIDTH),
                 .ASIZE(BUFFER_DEPTH),
@@ -259,8 +240,8 @@ module window_fetcher #(
             ) row_buffer (
                 .wclk   (clk_i), 
                 .wrst_n (w_rst_n),
-                .winc   (r_wr), 
-                .wdata  (window_reversed[b+1][WINDOW_WIDTH-1]),
+                .winc   (w_wr), 
+                .wdata  (w_data[b]),
                 .wfull  (), 
                 .awfull (),
 
@@ -275,7 +256,7 @@ module window_fetcher #(
 
         for(genvar r = 0; r < WINDOW_HEIGHT; r++) begin
             for(genvar c = 0; c < WINDOW_WIDTH; c++) begin
-                window[r][c] = window_reversed[(WINDOW_HEIGHT - 1) - r][(WINDOW_WIDTH - 1) - c];
+                assign window[r][c] = window_reversed[(WINDOW_HEIGHT - 1) - r][(WINDOW_WIDTH - 1) - c];
             end
         end
     endgenerate 
@@ -285,7 +266,7 @@ module window_fetcher #(
     logic [DATA_WIDTH - 1 : 0] window_0 [WINDOW_HEIGHT][WINDOW_WIDTH];
     logic [15:0]               window_center_col_0;
     logic [15:0]               window_center_row_0;
-    logic [15:0]               valid_0;
+    logic                      valid_0;
 
     always_ff@(posedge clk_i) begin
         if(BORDER_ENABLE) begin
@@ -293,9 +274,9 @@ module window_fetcher #(
             window_center_col_0    <= window_center_col;
             window_center_row_0    <= window_center_row;
             if(rst_i) begin
-                valid_0 <= 0
+                valid_0 <= 0;
             end else begin
-                valid_0 <= (valid || frame_received);
+                valid_0 <= valid && initial_start;
             end
         end
     end
@@ -305,15 +286,19 @@ module window_fetcher #(
         if(BORDER_ENABLE) begin
             for(int r = 0; r < WINDOW_HEIGHT; r++) begin
                 for(int c = 0; c < WINDOW_WIDTH; c++) begin
-                    int c_center_dist = c - WINDOW_WIDTH_CENTER;
-                    int r_center_dist = r - WINDOW_HEIGHT_CENTER;
-                    logic [15:0] c_img = window_center_col_0 + c_center_dist; 
-                    logic [15:0] r_img = window_center_row_0 + r_center_dist;
+                    int c_center_dist;
+                    int r_center_dist;
+                    logic [15:0] c_img; 
+                    logic [15:0] r_img;
+                    c_center_dist = c - WINDOW_WIDTH_CENTER;
+                    r_center_dist = r - WINDOW_HEIGHT_CENTER;
+                    c_img = window_center_col_0 + c_center_dist; 
+                    r_img = window_center_row_0 + r_center_dist;
         
                     if((r_img < 0) || (r_img > (IMAGE_HEIGHT - 1)) || (c_img < 0) || (c_img > (IMAGE_WIDTH  - 1))) begin
                         window_border_constant[r][c] = BORDER_EXTENSION_CONSTANT;
                     end else begin
-                        window_border_constant[r][c] = window_0[r][c]
+                        window_border_constant[r][c] = window_0[r][c];
                     end
 
                 end
@@ -324,5 +309,5 @@ module window_fetcher #(
     assign window_o = BORDER_ENABLE ? window_border_constant : window;
     assign col_o    = BORDER_ENABLE ? window_center_col_0    : window_center_col;
     assign row_o    = BORDER_ENABLE ? window_center_row_0    : window_center_row;
-    assign valid_o  = BORDER_ENABLE ? valid_0                : (valid || frame_received);
+    assign valid_o  = BORDER_ENABLE ? valid_0                : valid && initial_start;
 endmodule
