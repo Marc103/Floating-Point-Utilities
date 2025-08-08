@@ -109,20 +109,24 @@ end
     parameter LINEAR_WIDTH        = WINDOW_WIDTH * WINDOW_HEIGHT,  // *local
     parameter LINEAR_WIDTH_2CLOG2 = 2 ** $clog2(LINEAR_WIDTH),     // *local
     
-    parameter OPT_DATA_WIDTH  = EXP_WIDTH * 2,                     // *local
-    parameter EXP_MAX         = 2**EXP_WIDTH - 1,                  // *local
-    parameter DOUBLE_EXP_MAX  = 2**(EXP_WIDTH + EXP_WIDTH) - 1     // *local
+    parameter OPT_DATA_WIDTH                           = EXP_WIDTH * 2,                     // *local
+    parameter EXP_MAX                                  = 2**EXP_WIDTH - 1,                  // *local
+    parameter [OPT_DATA_WIDTH - 1 : 0] DOUBLE_EXP_MAX  = 2**(EXP_WIDTH + EXP_WIDTH) - 1,    // *local
 
-    parameter [OPT_DATA_WIDTH - 1 : 0] OPTIMAL_MULT [LINEAR_WIDTH] = {default:DOUBLE_EXP_MAX},
+    parameter [OPT_DATA_WIDTH - 1 : 0] OPTIMAL_MULT [LINEAR_WIDTH],
 
-    parameter OPTIMAL_ADD_LEVELS = $clog2(LINEAR_WIDTH_2CLOG2),
-    parameter [0:0] OPTIMAL_ADD  [OPTIMAL_ADD_LEVELS][LINEAR_WIDTH_CLOG2] = {default:1}
+    parameter OPTIMAL_ADD_LEVELS = $clog2(LINEAR_WIDTH_2CLOG2),    // *local
+    
+    parameter [0:0] OPTIMAL_ADD  [OPTIMAL_ADD_LEVELS][LINEAR_WIDTH_2CLOG2],
 
     ////////////////////////////////////////////////////////////////
     // Local parameters
-    parameter FP_WIDTH_REG = 1 + FRAC_WIDTH + EXP_WIDTH,
+    parameter FP_WIDTH_REG = 1 + FRAC_WIDTH + EXP_WIDTH
 
  ) (
+    input clk_i,
+    input rst_i,
+
     input  [FP_WIDTH_REG - 1 : 0] window_i [WINDOW_HEIGHT][WINDOW_WIDTH],
     input  [FP_WIDTH_REG - 1 : 0] kernel_i [WINDOW_HEIGHT][WINDOW_WIDTH],
     input  [15:0]                 col_i,
@@ -163,7 +167,7 @@ end
     ////////////////////////////////////////////////////////////////
     // Optimal Parallel Multiplication Generation
     logic [FP_WIDTH_REG - 1 : 0] mult_w       [LINEAR_WIDTH];
-    logic [FP_WIDTH_REG - 1 : 0] mult_valid_w [LINEAR_WIDTH];
+    logic                        mult_valid_w [LINEAR_WIDTH];
     logic [15:0]                 mult_col_w;
     logic                        mult_col_valid_w;
     logic [15:0]                 mult_row_w;
@@ -206,7 +210,7 @@ end
                     .rst_i(rst_i),
                     
                     .fp_a_i (window[opt_mult]),
-                    .fp_b_i (window[opt_mult]),
+                    .fp_b_i (kernel[opt_mult]),
                     .valid_i(valid),
 
                     .fp_o   (mult_w[opt_mult]),
@@ -223,7 +227,7 @@ end
                     .rst_i(rst_i),
                     
                     .fp_a_i (window[opt_mult]),
-                    .fp_b_i (window[opt_mult]),
+                    .fp_b_i (kernel[opt_mult]),
                     .valid_i(valid),
 
                     .fp_o   (mult_w[opt_mult]),
@@ -260,6 +264,8 @@ end
             .fp_o   (mult_row_w),
             .valid_o(mult_row_valid_w)
         );
+
+        
     endgenerate
 
     ////////////////////////////////////////////////////////////////
@@ -268,6 +274,8 @@ end
     logic [15:0]                 col_levels_w   [OPTIMAL_ADD_LEVELS];
     logic [15:0]                 row_levels_w   [OPTIMAL_ADD_LEVELS];
     logic                        valid_levels_w [OPTIMAL_ADD_LEVELS][LINEAR_WIDTH_2CLOG2];
+    logic                        valid_col_levels_w [OPTIMAL_ADD_LEVELS];
+    logic                        valid_row_levels_w [OPTIMAL_ADD_LEVELS];
 
     always_comb begin
         for(int opt = 0; opt < LINEAR_WIDTH; opt++) begin
@@ -280,19 +288,23 @@ end
         end
         col_levels_w[0] = mult_col_w;
         row_levels_w[0] = mult_row_w;
+        valid_col_levels_w[0] = mult_col_valid_w;
+        valid_row_levels_w[0] = mult_row_valid_w;
     end
 
     generate
         // Optimal Adder Tree
+        localparam last = OPTIMAL_ADD_LEVELS - 1;
+
         for(genvar l = 1; l < OPTIMAL_ADD_LEVELS; l++) begin
-            for(opt = 0; opt < (2**(OPTIMAL_ADD_LEVELS - l)); opt++) begin
-                localparam l_up  = l - 1;
+            localparam l_up  = l - 1;
+            for(genvar opt = 0; opt < (2**(OPTIMAL_ADD_LEVELS - l)); opt++) begin
                 localparam idx_0 = opt * 2;
                 localparam idx_1 = (opt * 2) + 1;
 
-                if((OPTIMAL_ADD[l][idx_0] == 0) && (OPTIMAL_ADD[l][idx_1] == 0)) begin
+                if((OPTIMAL_ADD[l_up][idx_0] == 0) && (OPTIMAL_ADD[l_up][idx_1] == 0)) begin
                     // leave disconnected
-                end else if((OPTIMAL_ADD[l][idx_0] == 1) && (OPTIMAL_ADD[l][idx_1] == 0)) begin
+                end else if((OPTIMAL_ADD[l_up][idx_0] == 1) && (OPTIMAL_ADD[l_up][idx_1] == 0)) begin
                     // pass through left side
                     floating_point_adder_z #(
                         .EXP_WIDTH(EXP_WIDTH),
@@ -301,13 +313,13 @@ end
                         .clk_i(clk_i),
                         .rst_i(rst_i),
 
-                        .fp_a_i (add_levels    [l_up][idx_0]),
+                        .fp_a_i (add_levels_w  [l_up][idx_0]),
                         .valid_i(valid_levels_w[l_up][idx_0]),
 
-                        .fp_o   (add_levels  [l][opt]),
-                        .valid_o(valid_levels[l][opt])
+                        .fp_o   (add_levels_w  [l][opt]),
+                        .valid_o(valid_levels_w[l][opt])
                     );
-                end else if((OPTIMAL_ADD[l][idx_0] == 0) && (OPTIMAL_ADD[l][idx_1] == 1)) begin
+                end else if((OPTIMAL_ADD[l_up][idx_0] == 0) && (OPTIMAL_ADD[l_up][idx_1] == 1)) begin
                     // pass through right side
                     floating_point_adder_z #(
                         .EXP_WIDTH(EXP_WIDTH),
@@ -316,11 +328,11 @@ end
                         .clk_i(clk_i),
                         .rst_i(rst_i),
 
-                        .fp_a_i (add_levels    [l_up][idx_1]),
+                        .fp_a_i (add_levels_w  [l_up][idx_1]),
                         .valid_i(valid_levels_w[l_up][idx_1]),
 
-                        .fp_o   (add_levels  [l][opt]),
-                        .valid_o(valid_levels[l][opt])
+                        .fp_o   (add_levels_w  [l][opt]),
+                        .valid_o(valid_levels_w[l][opt])
                     );
                 end else begin
                     // genuine adder
@@ -331,20 +343,126 @@ end
                         .clk_i(clk_i),
                         .rst_i(rst_i),
 
-                        .fp_a_i (add_levels    [l_up][idx_0]),
-                        .fp_b_i (add_levels    [l_up][idx_1])
+                        .fp_a_i (add_levels_w    [l_up][idx_0]),
+                        .fp_b_i (add_levels_w    [l_up][idx_1]),
                         .valid_i(valid_levels_w[l_up][idx_0]),
 
-                        .fp_o   (add_levels  [l][opt]),
-                        .valid_o(valid_levels[l][opt])
+                        .fp_o   (add_levels_w  [l][opt]),
+                        .valid_o(valid_levels_w[l][opt])
                     );
                 end
-    
             end
+
+            // Col and Row Delays
+            floating_point_adder_z #(
+                .EXP_WIDTH(0),
+                .FRAC_WIDTH(15)
+            ) col_adder_delay (
+                .clk_i(clk_i),
+                .rst_i(rst_i),
+
+                .fp_a_i (col_levels_w      [l_up]),
+                .valid_i(valid_col_levels_w[l_up]),
+
+                .fp_o   (col_levels_w      [l]),
+                .valid_o(valid_col_levels_w[l])
+            );
+
+            floating_point_adder_z #(
+                .EXP_WIDTH(0),
+                .FRAC_WIDTH(15)
+            ) row_adder_delay (
+                .clk_i(clk_i),
+                .rst_i(rst_i),
+
+                .fp_a_i (row_levels_w      [l_up]),
+                .valid_i(valid_row_levels_w[l_up]),
+
+                .fp_o   (row_levels_w      [l]),
+                .valid_o(valid_row_levels_w[l])
+            );
+        end
+
+        ////////////////////////////////////////////////////////////////
+        // Out - Wiring Last Level 
+        if((OPTIMAL_ADD[last][0] == 0) && (OPTIMAL_ADD[last][1] == 0)) begin
+            // leave disconnected
+        end else if((OPTIMAL_ADD[last][0] == 1) && (OPTIMAL_ADD[last][1] == 0)) begin
+            // pass through left side
+            floating_point_adder_z #(
+                .EXP_WIDTH(EXP_WIDTH),
+                .FRAC_WIDTH(FRAC_WIDTH)
+            ) last_adder_left_pass (
+                .clk_i(clk_i),
+                .rst_i(rst_i),
+
+                .fp_a_i (add_levels_w    [last][0]),
+                .valid_i(valid_levels_w[last][0]),
+
+                .fp_o   (data_o),
+                .valid_o(valid_o)
+            );
+        end else if((OPTIMAL_ADD[last][0] == 0) && (OPTIMAL_ADD[last][1] == 1)) begin
+            // pass through right side
+            floating_point_adder_z #(
+                .EXP_WIDTH(EXP_WIDTH),
+                .FRAC_WIDTH(FRAC_WIDTH)
+            ) last_adder_right_pass (
+                .clk_i(clk_i),
+                .rst_i(rst_i),
+
+                .fp_a_i (add_levels_w    [last][1]),
+                .valid_i(valid_levels_w[last][1]),
+
+                .fp_o   (data_o),
+                .valid_o(valid_o)
+            );
+        end else begin
+            // genuine adder
+            floating_point_adder #(
+                .EXP_WIDTH(EXP_WIDTH),
+                .FRAC_WIDTH(FRAC_WIDTH)
+            ) last_adder (
+                .clk_i(clk_i),
+                .rst_i(rst_i),
+
+                .fp_a_i (add_levels_w    [last][0]),
+                .fp_b_i (add_levels_w    [last][1]),
+                .valid_i(valid_levels_w[last][0]),
+
+                .fp_o   (data_o),
+                .valid_o(valid_o)
+            );
         end
 
         // Col and Row Delays
+        floating_point_adder_z #(
+            .EXP_WIDTH(0),
+            .FRAC_WIDTH(15)
+        ) last_col_adder_delay (
+            .clk_i(clk_i),
+            .rst_i(rst_i),
 
+            .fp_a_i (col_levels_w      [last]),
+            .valid_i(valid_col_levels_w[last]),
+
+            .fp_o   (col_o),
+            .valid_o()
+        );
+
+        floating_point_adder_z #(
+            .EXP_WIDTH(0),
+            .FRAC_WIDTH(15)
+        ) last_row_adder_delay (
+            .clk_i(clk_i),
+            .rst_i(rst_i),
+
+            .fp_a_i (row_levels_w      [last]),
+            .valid_i(valid_row_levels_w[last]),
+
+            .fp_o   (row_o),
+            .valid_o()
+        );
 
     endgenerate
 

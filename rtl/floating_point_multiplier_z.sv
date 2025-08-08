@@ -9,7 +9,7 @@
 
     ////////////////////////////////////////////////////////////////
     // Local parameters
-    parameter FP_WIDTH_REG = 1 + FRAC_WIDTH + EXP_WIDTH,
+    parameter FP_WIDTH_REG = 1 + FRAC_WIDTH + EXP_WIDTH
  ) (
     input clk_i,
     input rst_i,

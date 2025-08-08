@@ -3,4 +3,5 @@ package utilities_pkg;
     `include "TriggerableQueueBroadcaster.sv"
     `include "FloatingPoint.sv"
     `include "Image.sv"
+    `include "ConvolutionFloatingPoint.sv"
 endpackage

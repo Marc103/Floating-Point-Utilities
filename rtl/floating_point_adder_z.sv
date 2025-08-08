@@ -10,7 +10,7 @@ module floating_point_adder_z #(
 
     ////////////////////////////////////////////////////////////////
     // Local parameters
-    parameter FP_WIDTH_REG = 1 + EXP_WIDTH + FRAC_WIDTH,
+    parameter FP_WIDTH_REG = 1 + EXP_WIDTH + FRAC_WIDTH
 ) (
     input clk_i,
     input rst_i,
@@ -38,7 +38,7 @@ module floating_point_adder_z #(
             end
         end else begin  
             valid_reg[0] <= valid_i;
-            for(int i = 0; i < 7; i++) begin
+            for(int i = 1; i < 7; i++) begin
                 valid_reg[i] <= valid_reg[i-1];
             end
         end

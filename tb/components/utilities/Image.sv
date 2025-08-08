@@ -57,4 +57,15 @@ class Image #(
         $display();
     endfunction   
 
+    function void print_32();
+        $display();
+        for(int r = 0; r < IMAGE_HEIGHT; r++) begin
+            for(int c = 0; c < IMAGE_WIDTH; c++) begin
+                $write("%0.4f ", $bitstoshortreal(image[r][c]));
+            end
+            $display();
+        end
+        $display();
+    endfunction
+
 endclass

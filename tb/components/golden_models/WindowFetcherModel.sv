@@ -42,7 +42,4 @@ class WindowFetcherModel #(type T_image, type T_window, parameter BORDER_ENABLE 
 
         end
     endtask
-
-
-
 endclass 

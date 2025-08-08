@@ -8,7 +8,7 @@
     parameter FRAC_WIDTH = 0,
     parameter SIGN       = 0,
     parameter EXPONENT   = 0,
-    parameter BY_ZERO    = 0
+    parameter BY_ZERO    = 0,
     
     ////////////////////////////////////////////////////////////////
     // Local parameters
