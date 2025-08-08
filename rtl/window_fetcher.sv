@@ -105,8 +105,12 @@ module window_fetcher #(
             valid <= valid_i;
         end
     end       
-    logic eof;
-    assign eof = (col == (IMAGE_WIDTH - 1)) && (row == (IMAGE_HEIGHT - 1)) && valid;
+    
+    // small sync logic
+    logic sof;
+    assign sof = (col == 0) && (row == 0) && valid;
+    logic [15:0] window_width_center_start_next;
+    logic [15:0] window_height_center_start_next;
 
     ////////////////////////////////////////////////////////////////
     // Control State
@@ -138,9 +142,23 @@ module window_fetcher #(
     end
 
     always_comb begin
+        // sync setting
+        window_width_center_start_next = WINDOW_WIDTH_CENTER_START;
+        window_height_center_start_next = WINDOW_HEIGHT_CENTER_START;
+        if(window_width_center_start_next == (IMAGE_WIDTH - 1)) begin
+            window_width_center_start_next = 0;
+            if(window_height_center_start_next == (IMAGE_HEIGHT - 1)) begin
+                window_height_center_start_next = 0;
+            end else begin
+                window_height_center_start_next = window_height_center_start_next + 1;
+            end
+        end else begin
+            window_width_center_start_next = window_width_center_start_next + 1;
+        end  
+
         window_center_col_next = window_center_col;
         window_center_row_next = window_center_row;
-        initial_start_next     = initial_start;            
+        initial_start_next     = initial_start; 
 
         if(valid) begin
             window_center_col_next = window_center_col + 1;
@@ -150,6 +168,10 @@ module window_fetcher #(
                 if(window_center_row == (IMAGE_HEIGHT - 1)) begin
                     window_center_row_next = 0;
                 end
+            end
+            if(sof) begin
+                window_center_col_next = window_width_center_start_next;
+                window_center_row_next = window_height_center_start_next;
             end
             if((window_center_col == (IMAGE_WIDTH - 1)) && (window_center_row == (IMAGE_HEIGHT - 1))) begin
                 initial_start_next = 1;
