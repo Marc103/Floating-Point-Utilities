@@ -1,0 +1,44 @@
+verific -vlog-define NO_INCLUDES
+verific -sv -lib +/ecp5/cells_sim.v +/ecp5/cells_bb.v  +/ecp5/cells_ff.vh  +/ecp5/cells_io.vh
+verific -vlog-undef NO_INCLUDES
+
+verific -sv ../../third-party/afifo.v
+
+verific -sv ../../third-party/i2c_initializer.sv \
+            ../../third-party/verilog-common/ft232h_async_driver/hdl/ft232h_driver.sv \
+            ../../third-party/camera_reader.sv \
+            \
+            ../../third-party/verilog-common/async_fifo/rtl/async_fifo.v \
+            ../../third-party/verilog-common/async_fifo/rtl/fifomem.v \
+            ../../third-party/verilog-common/async_fifo/rtl/rptr_empty.v \
+            ../../third-party/verilog-common/async_fifo/rtl/sync_r2w.v \
+            ../../third-party/verilog-common/async_fifo/rtl/sync_w2r.v \
+            ../../third-party/verilog-common/async_fifo/rtl/wptr_full.v \
+            ../../third-party/verilog-common/hdl/word_concatenator.v \
+            ../../third-party/util.v \
+            \
+            ../../rtl/bilinear_xform.sv \
+            ../../third-party/RAM_2Port.v \
+            ../../rtl/controller.sv \
+            \
+            ../../rtl/configurations/cvpr_demo_fp_const_config.sv \
+            ../../rtl/single_core_dfdd.sv \
+            ../../rtl/single_scale_dfdd.sv \
+            ../../rtl/depth_recovery.sv \
+            ../../rtl/divisor.sv \
+            ../../rtl/hardmax.sv \
+            ../../rtl/conv_net.sv \
+            ../../rtl/roi.sv \
+            ../../rtl/delay_line.sv \
+            ../../rtl/misc/pixel_fetcher.sv \
+            ../../rtl/zero_latency_buffer.sv \
+            ../../rtl/stream_buffer.sv \
+            ../../rtl/stream_deserializer.sv \
+            ../../rtl/dual_camera_wrapper.sv \
+            \
+            ../../third-party/uart.sv \
+            \
+            pll.sv \
+            top.sv
+
+synth_ecp5 -noflatten -top top -json top.json

@@ -47,7 +47,14 @@ end
 from math import  log2, ceil
 
 def is_power_of_two(n):
-    return n > 0 and (n & (n - 1)) == 0
+    if n <= 0:
+        return False
+    
+    if isinstance(n, int) or n.is_integer():
+        n = int(n)
+        return (n  & (n - 1)) == 0
+    else:
+        return log2(n).is_integer()
 
 def int_to_signed_bin(n, width):
     if n >= 0:
@@ -88,10 +95,13 @@ def opt_mult_str(kernel_value, EXP_WIDTH, EXP_MAX):
     return opt_mult_str
 
 
-def generate_optimal_convolution_floating_point(EXP_WIDTH=0, FRAC_WIDTH=0, WINDOW_WIDTH=0, WINDOW_HEIGHT=0, KERNEL=[[]], module_name="default_name"):
+def generate_optimal_convolution_floating_point(EXP_WIDTH=0, FRAC_WIDTH=0, KERNEL=[[]], module_name="default_name"):
+    WINDOW_HEIGHT = len(KERNEL)
+    WINDOW_WIDTH  = len(KERNEL[0])
+    
     KERNEL_2D = KERNEL
     KERNEL_2D_STR = ""
-    for r in range(WINDOW_WIDTH):
+    for r in range(WINDOW_HEIGHT):
         KERNEL_2D_STR += (str(KERNEL_2D[r]) + "\n")
 
     # flatten KERNEL 
@@ -101,7 +111,7 @@ def generate_optimal_convolution_floating_point(EXP_WIDTH=0, FRAC_WIDTH=0, WINDO
     LINEAR_WIDTH_2CLOG2 = 2 ** (ceil(log2(LINEAR_WIDTH)))
     OPT_DATA_WIDTH      = EXP_WIDTH * 2
 
-    EXP_MAX        = 2 ** (EXP_WIDTH - 1)
+    EXP_MAX        = 2 ** (EXP_WIDTH) - 1
     DOUBLE_EXP_MAX = 2 ** (OPT_DATA_WIDTH) - 1
 
     OPTIMAL_ADD_LEVELS = ceil(log2(LINEAR_WIDTH_2CLOG2))
@@ -244,12 +254,9 @@ endmodule""" % (KERNEL_2D_STR, module_name, str(EXP_WIDTH), str(FRAC_WIDTH), str
 if __name__ == "__main__":
     EXP_WIDTH = 5
     FRAC_WIDTH = 10
-    WINDOW_WIDTH = 5
-    WINDOW_HEIGHT = 5
-    KERNEL = [[0,0,0,0,0],
-              [0,0,-1,0,0],
-              [0,-1,4,-1,0],
-              [0,0,-1,0,0],
-              [0,0,0,0,0]]
-    generate_optimal_convolution_floating_point(EXP_WIDTH, FRAC_WIDTH, WINDOW_WIDTH, WINDOW_HEIGHT, KERNEL, "test")
+    KERNEL = [[1/4,1/2,1/4], 
+              [1/2,1  ,1/2],
+              [1/4,1/2,1/4]]
+    
+    generate_optimal_convolution_floating_point(EXP_WIDTH, FRAC_WIDTH, KERNEL, "upsampler_0_fp16")
 

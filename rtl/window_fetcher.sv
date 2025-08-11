@@ -50,18 +50,18 @@
  */
 
 module window_fetcher #(
-    parameter DATA_WIDTH = 0,
+    parameter DATA_WIDTH,
 
-    parameter IMAGE_WIDTH  = 0,
-    parameter IMAGE_HEIGHT = 0,
+    parameter IMAGE_WIDTH,
+    parameter IMAGE_HEIGHT,
 
-    parameter WINDOW_WIDTH                = 0,
-    parameter WINDOW_HEIGHT               = 0,
+    parameter WINDOW_WIDTH,
+    parameter WINDOW_HEIGHT,
     parameter WINDOW_WIDTH_CENTER_OFFSET  = 0,
     parameter WINDOW_HEIGHT_CENTER_OFFSET = 0,
 
     parameter [DATA_WIDTH - 1] BORDER_EXTENSION_CONSTANT = 0,
-    parameter                  BORDER_ENABLE             = 0,
+    parameter                  BORDER_ENABLE             = 1,
 
     ////////////////////////////////////////////////////////////////
     // Local parameters
