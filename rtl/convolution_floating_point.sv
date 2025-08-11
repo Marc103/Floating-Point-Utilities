@@ -95,6 +95,8 @@ end
  * Verilog's lack of expressive power when setting constants limits us dearly, and so we are forced to manually calculate
  * these values (which no doubt can introduce bugs, so do this very carefully).
  *
+ * New Feature! See 'optimal_convolution_floating_point_generator.py' to generate a wrapper file that figures
+ * all of this out automatically just with knowing the kernel values.
  *
  * Designed to work with a Window Fetcher.
  */
@@ -111,7 +113,7 @@ end
     
     parameter OPT_DATA_WIDTH                           = EXP_WIDTH * 2,                     // *local
     parameter EXP_MAX                                  = 2**EXP_WIDTH - 1,                  // *local
-    parameter [OPT_DATA_WIDTH - 1 : 0] DOUBLE_EXP_MAX  = 2**(EXP_WIDTH + EXP_WIDTH) - 1,    // *local
+    parameter [OPT_DATA_WIDTH - 1 : 0] DOUBLE_EXP_MAX  = 2**(OPT_DATA_WIDTH) - 1,    // *local
 
     parameter [OPT_DATA_WIDTH - 1 : 0] OPTIMAL_MULT [LINEAR_WIDTH],
 
