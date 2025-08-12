@@ -12,7 +12,7 @@ module zero_inserter #(
 
     ////////////////////////////////////////////////////////////////
     // Local parameters
-    parameter FP_WIDTH_REG = 1 + FRAC_WIDTH + EXP_WIDTH,
+    parameter FP_WIDTH_REG = 1 + FRAC_WIDTH + EXP_WIDTH
 
 ) (
     input clk_i,
@@ -47,15 +47,17 @@ module zero_inserter #(
 
     logic [FP_WIDTH_REG - 1 : 0] data_zero;
     always_comb begin
-        data_zero = data;
+        data_zero = 0;
         if(DISABLE == 0) begin
             if(SCALE == 0) begin
-                if((row[0] != 0) || (col[0] != 0)) data_zero = 0;
+                if((row[0] == 0) && (col[0] == 0)) data_zero = data;
             end else if (SCALE == 1) begin
-                if((row[1:0] != 0) || (col[1:0] != 0)) data_zero = 0;
-            end else if (SCALE == 0) begin
-                if((row[2:0] != 0) || (col[2:0] != 0)) data_zero = 0;
+                if((row[1:0] == 0) && (col[1:0] == 0)) data_zero = data;
+            end else if (SCALE == 2) begin
+                if((row[2:0] == 0) && (col[2:0] == 0)) data_zero = data;
             end
+        end else begin
+            data_zero = data;
         end
     end
 

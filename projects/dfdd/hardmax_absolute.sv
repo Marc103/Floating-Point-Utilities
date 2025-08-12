@@ -30,7 +30,7 @@ module hardmax_absolute #(
     output [FP_WIDTH_REG - 1 : 0] w_o,
     output [FP_WIDTH_REG - 1 : 0] c_o,
     output                        valid_o 
-)
+);
 
     logic [FP_WIDTH_REG - 1 : 0] v [NO_COMPARORS];
     logic [FP_WIDTH_REG - 1 : 0] w [NO_COMPARORS];

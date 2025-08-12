@@ -60,8 +60,8 @@ module window_fetcher #(
     parameter WINDOW_WIDTH_CENTER_OFFSET  = 0,
     parameter WINDOW_HEIGHT_CENTER_OFFSET = 0,
 
-    parameter [DATA_WIDTH - 1] BORDER_EXTENSION_CONSTANT = 0,
-    parameter                  BORDER_ENABLE             = 1,
+    parameter [DATA_WIDTH - 1 : 0] BORDER_EXTENSION_CONSTANT = 0,
+    parameter                      BORDER_ENABLE             = 1,
 
     ////////////////////////////////////////////////////////////////
     // Local parameters
@@ -220,7 +220,7 @@ module window_fetcher #(
 
         w_data[0] = data;
         for(int r = 1; r < WINDOW_HEIGHT; r++) begin
-            w_data[r] = w_data[r];
+            w_data[r] = r_data[r - 1];
         end
     end
 
@@ -292,7 +292,7 @@ module window_fetcher #(
 
     always_ff@(posedge clk_i) begin
         if(BORDER_ENABLE) begin
-            window_0 <= window;
+            window_0               <= window;
             window_center_col_0    <= window_center_col;
             window_center_row_0    <= window_center_row;
             if(rst_i) begin

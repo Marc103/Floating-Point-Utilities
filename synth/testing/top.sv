@@ -1,6 +1,5 @@
-`include "../../rtl/common/command_interface.svh"
-`include "../../rtl/common/pixel_data_interface.svh"
-`include "../../rtl/misc/common.svh"
+`include "../../rtl/pixel_data_interface.svh"
+`include "../../rtl/command_interface.svh"
 
 module top #(
     // Raw image dims coming in from camera
@@ -21,8 +20,8 @@ module top #(
     localparam FP_S_IMAGE = 0,  //1
 
     // i2c
-    parameter string INIT_FILE_0 = "../synth/camera_previewer/hm0360_initializer_program_0.hex",
-    parameter string INIT_FILE_1 = "../synth/camera_previewer/hm0360_initializer_program_1.hex",
+    parameter string INIT_FILE_0 = "../../synth/testing/hm0360_initializer_program_0.hex",
+    parameter string INIT_FILE_1 = "../../synth/testing/hm0360_initializer_program_1.hex",
     parameter SCL_DIV = 50,
 
     // bilinear matrix parameters
@@ -35,12 +34,12 @@ module top #(
     // Input Stream Buffer 
     parameter CHANNELS_I     = 2,
     parameter DATA_WIDTH_I   = 8,
-    parameter BUFFER_DEPTH_I = 2**16,
+    parameter BUFFER_DEPTH_I = 32,
 
     // Output Stream Buffer
-    parameter CHANNELS_O       = 2,
+    parameter CHANNELS_O       = 1,
     parameter DATA_WIDTH_O     = 8,
-    parameter BUFFER_DEPTH_O   = 16,
+    parameter BUFFER_DEPTH_O   = 2**16,
 
     // Output Stream Deserializer
     parameter        DES_CHANNEL_DATA_WIDTH = DATA_WIDTH_O,
@@ -325,10 +324,10 @@ module top #(
 
     ////////////////////////////////////////////////////////////////
     // Input Stream Buffer
-    logic                    rd_stall_sbi_sbd_w;
-    logic [DATA_WIDTH_I-1:0] rd_channels_sbi_sbd_w [CHANNELS_I];
-    logic                    rd_valid_sbi_sbd_w;
-    logic                    rd_sof_sbi_sbd_w;
+    logic                    rd_stall_sbi_w;
+    logic [DATA_WIDTH_I-1:0] rd_channels_sbi_w [CHANNELS_I];
+    logic                    rd_valid_sbi_w;
+    logic                    rd_sof_sbi_w;
 
     stream_buffer #(
         .CHANNELS(CHANNELS_I),
@@ -343,10 +342,151 @@ module top #(
 
         .rd_clk_i     (core_clk),
         .rd_rst_i     (sys_reset),
-        .rd_stall_i   (rd_stall_sbi_sbd_w),
-        .rd_channels_o(rd_channels_sbi_sbd_w),
-        .rd_valid_o   (rd_valid_sbi_sbd_w),
-        .rd_sof_o     (rd_sof_sbi_sbd_w)
+        .rd_stall_i   (rd_stall_sbi_w),
+        .rd_channels_o(rd_channels_sbi_w),
+        .rd_valid_o   (rd_valid_sbi_w),
+        .rd_sof_o     (rd_sof_sbi_w)
+    );
+
+    ////////////////////////////////////////////////////////////////
+    // Processing Elements
+    logic                    wr_clks_sbo_w     [CHANNELS_O];
+    logic                    wr_rsts_sbo_w     [CHANNELS_O];
+    logic [DATA_WIDTH_O-1:0] wr_channels_sbo_w [CHANNELS_O];
+    logic                    wr_valids_sbo_w   [CHANNELS_O];
+    logic                    wr_sof_sbo_w;
+
+    // uint8 to fp16 conversions and row/col tracking --------------
+    assign rd_stall_sbi_w = 0;
+
+    logic rd_sof_sbi_delay;
+    always@(posedge core_clk) rd_sof_sbi_delay <= rd_sof_sbi_w;
+
+    logic [15:0] fp16_in;
+    logic        valid_in;
+    
+    uint8_fp16_converter cam_0_uint8_fp16_converter (
+        .clk_i(core_clk),
+        .rst_i(sys_reset),
+
+        .uint8_i(rd_channels_sbi_w[0]),
+        .valid_i(rd_valid_sbi_w),
+
+        .fp16_o(fp16_in),
+        .valid_o(valid_in)
+    );
+
+    logic [15:0] col_in;
+    logic [15:0] col_in_next;
+    logic [15:0] row_in;
+    logic [15:0] row_in_next;
+    logic [15:0] col_in_0;
+    logic [15:0] row_in_0;
+
+    always_ff@(posedge core_clk) begin
+        if(sys_reset) begin
+            col_in <= 0;
+            row_in <= 0;
+        end else begin
+            col_in <= col_in_next;
+            row_in <= row_in_next;
+        end
+    end
+
+    always_comb begin
+        col_in_next = col_in;
+        row_in_next = row_in;
+
+        if(valid_in) begin
+            col_in_next = col_in + 1;
+            if(col_in == (ROI_WIDTH - 1)) begin
+                col_in_next = 0;
+                row_in_next = row_in + 1;
+                if(row_in == (ROI_HEIGHT - 1)) begin
+                    row_in_next = 0;
+                end
+            end
+        end
+        
+        if(rd_sof_sbi_delay && valid_in) begin
+            col_in_next = 1;
+            row_in_next = 0;
+        end
+    end
+
+    assign col_in_0 = rd_sof_sbi_delay && valid_in ? 0 : row_in;
+    assign row_in_0 = rd_sof_sbi_delay && valid_in ? 0 : col_in;
+
+    // main processing elements ----------------------------
+    logic [15:0] fp16_out;
+    logic valid_out;
+    logic [15:0] col_out;
+    logic [15:0] row_out;
+
+    zero_scale_fp16 #(
+        .IMAGE_WIDTH(ROI_WIDTH),
+        .IMAGE_HEIGHT(ROI_HEIGHT),
+        .BORDER_ENABLE(0)
+    ) zero_scale (
+        .clk_i(core_clk),
+        .rst_i(sys_reset),
+
+        .i_a_i(fp16_in),
+        .col_i(col_in),
+        .row_i(row_in),
+        .valid_i(valid_in),
+
+        .i_a_downsample_o(fp16_out),
+        .col_downsample_o(col_out),
+        .row_downsample_o(row_out),
+        .valid_downsample_o(valid_out)
+    );
+
+    // fp16 to u8 conversions -------------------------------
+    logic wr_sof_sbo_delay;
+    always@(posedge core_clk) wr_sof_sbo_delay <= ((col_out == (ROI_WIDTH-1)) && (row_out == (ROI_HEIGHT - 1)));
+
+    fp16_u8_converter #(
+        .LEAD_EXPONENT_UNBIASED(7)
+    ) cam_0_fp16_u8_converter (
+        .clk_i(core_clk),
+        .rst_i(sys_reset),
+
+        .fp16_i(fp16_out),
+        .valid_i(valid_out),
+
+        .u8_o(wr_channels_sbo_w[0]),
+        .valid_o(wr_valids_sbo_w[0])
+    );
+    
+    assign wr_clks_sbo_w[0] = core_clk;
+    assign wr_rsts_sbo_w[0] = sys_reset;
+    assign wr_sof_sbo_w     = wr_sof_sbo_delay;
+
+    ////////////////////////////////////////////////////////////////
+    // Output Stream Buffer
+    logic                    rd_stall_sbo_sbd_w;
+    logic [DATA_WIDTH_O-1:0] rd_channels_sbo_sbd_w [CHANNELS_O];
+    logic                    rd_valid_sbo_sbd_w;
+    logic                    rd_sof_sbo_sbd_w;
+
+    stream_buffer #(
+        .CHANNELS(CHANNELS_O),
+        .DATA_WIDTH(DATA_WIDTH_O),
+        .BUFFER_DEPTH(BUFFER_DEPTH_O)
+    ) stream_buffer_o (
+        .wr_clks_i    (wr_clks_sbo_w),
+        .wr_rsts_i    (wr_rsts_sbo_w),
+        .wr_channels_i(wr_channels_sbo_w),
+        .wr_valids_i  (wr_valids_sbo_w),
+        .wr_sof_i     (wr_sof_sbo_w),
+
+        .rd_clk_i     (core_clk),
+        .rd_rst_i     (sys_reset),
+        .rd_stall_i   (rd_stall_sbo_sbd_w),
+        .rd_channels_o(rd_channels_sbo_sbd_w),
+        .rd_valid_o   (rd_valid_sbo_sbd_w),
+        .rd_sof_o     (rd_sof_sbo_sbd_w)
     );
 
     ////////////////////////////////////////////////////////////////
@@ -370,10 +510,10 @@ module top #(
         .rd_clk_i     (core_clk),
         .rd_rst_i     (sys_reset),
 
-        .rd_stall_o   (rd_stall_sbi_sbd_w),
-        .rd_channels_i(rd_channels_sbi_sbd_w),
-        .rd_valid_i   (rd_valid_sbi_sbd_w),
-        .rd_sof_i     (rd_sof_sbi_sbd_w),
+        .rd_stall_o   (rd_stall_sbo_sbd_w),
+        .rd_channels_i(rd_channels_sbo_sbd_w),
+        .rd_valid_i   (rd_valid_sbo_sbd_w),
+        .rd_sof_i     (rd_sof_sbo_sbd_w),
 
         .wr_stall_i  (!ft232_fifo_has_space),
         .wr_channel_o(ft245_fifo_write_data),
@@ -463,6 +603,7 @@ module top #(
     // LEDs
     always_comb begin
         //led[6:0] = bilinear_matrices[0][0][0];
+        /*
         led[7] = !pll_locked;
 
         led[0] = !sys_reset;
@@ -471,5 +612,6 @@ module top #(
         
         led[3] = !ft245_fifo_write_data_valid;
         led[4] = !ft232_fifo_has_space;
+        */
     end
 endmodule

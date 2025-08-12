@@ -5,19 +5,22 @@
  */
 
 
-module zero_scale #(
+module zero_scale_fp16 #(
     parameter IMAGE_WIDTH,
     parameter IMAGE_HEIGHT,
 
-    parameter DX_DY_ENABLE = 0
+    parameter DX_DY_ENABLE = 0,
+    parameter BORDER_ENABLE = 1,
 
     ////////////////////////////////////////////////////////////////
     // Local parameters
     parameter EXP_WIDTH = 5,
     parameter FRAC_WIDTH = 10,
-    parameter FP_WIDTH_REG = 1 + FRAC_WIDTH + EXP_WIDTH,
-    
+    parameter FP_WIDTH_REG = 1 + FRAC_WIDTH + EXP_WIDTH
 ) (
+    input clk_i,
+    input rst_i,
+
     input [FP_WIDTH_REG - 1 : 0]  i_a_i,
     input [FP_WIDTH_REG - 1 : 0]  i_t_i,
     input [15:0]                  col_i,
@@ -36,8 +39,7 @@ module zero_scale #(
     output [FP_WIDTH_REG - 1 : 0] c_o,
     output [15:0]                 col_o,
     output [15:0]                 row_o,
-    output                        valid_o,
-
+    output                        valid_o
 );
 
     ////////////////////////////////////////////////////////////////
@@ -45,20 +47,20 @@ module zero_scale #(
 
     logic [FP_WIDTH_REG - 1 : 0] bh_kernel_w [1][5];
     always_comb begin
-        i_a_bh_kernel[0][0] = 16'h2c00;
-        i_a_bh_kernel[0][1] = 16'h3400;
-        i_a_bh_kernel[0][2] = 16'h3600;
-        i_a_bh_kernel[0][3] = 16'h3400;
-        i_a_bh_kernel[0][4] = 16'h2c00;
+        bh_kernel_w[0][0] = 16'h2c00;
+        bh_kernel_w[0][1] = 16'h3400;
+        bh_kernel_w[0][2] = 16'h3600;
+        bh_kernel_w[0][3] = 16'h3400;
+        bh_kernel_w[0][4] = 16'h2c00;
     end
 
     logic [FP_WIDTH_REG - 1 : 0] bv_kernel_w [5][1];
     always_comb begin
-        i_a_bh_kernel[0][0] = 16'h2c00;
-        i_a_bh_kernel[1][0] = 16'h3400;
-        i_a_bh_kernel[2][0] = 16'h3600;
-        i_a_bh_kernel[3][0] = 16'h3400;
-        i_a_bh_kernel[4][0] = 16'h2c00;
+        bv_kernel_w[0][0] = 16'h2c00;
+        bv_kernel_w[1][0] = 16'h3400;
+        bv_kernel_w[2][0] = 16'h3600;
+        bv_kernel_w[3][0] = 16'h3400;
+        bv_kernel_w[4][0] = 16'h2c00;
     end
 
     logic [FP_WIDTH_REG - 1 : 0] box_2_2_kernel_w [2][2];
@@ -69,7 +71,7 @@ module zero_scale #(
         box_2_2_kernel_w[0][1] = 16'h3400;
     end
 
-    logic [FP_WIDTH_REG - 1 : 0] upsampler_3_3_kernel_w [2][2];
+    logic [FP_WIDTH_REG - 1 : 0] upsampler_3_3_kernel_w [3][3];
     always_comb begin
         upsampler_3_3_kernel_w[0][0] = 16'h3400;
         upsampler_3_3_kernel_w[0][1] = 16'h3800;
@@ -105,7 +107,8 @@ module zero_scale #(
         .IMAGE_WIDTH  (IMAGE_WIDTH),
         .IMAGE_HEIGHT (IMAGE_HEIGHT),
         .WINDOW_WIDTH (5),
-        .WINDOW_HEIGHT(1)
+        .WINDOW_HEIGHT(1),
+        .BORDER_ENABLE(BORDER_ENABLE)
     ) i_a_window_fetcher_h (
         .clk_i(clk_i),
         .rst_i(rst_i),
@@ -142,7 +145,7 @@ module zero_scale #(
         .valid_o(i_a_bh_valid_w)
     );
 
-    logic [FP_WIDTH_REG - 1 : 0] i_a_wfv_window_w [1][5];
+    logic [FP_WIDTH_REG - 1 : 0] i_a_wfv_window_w [5][1];
     logic [15:0]                 i_a_wfv_col_w;
     logic [15:0]                 i_a_wfv_row_w;
     logic                        i_a_wfv_valid_w;
@@ -152,7 +155,8 @@ module zero_scale #(
         .IMAGE_WIDTH  (IMAGE_WIDTH),
         .IMAGE_HEIGHT (IMAGE_HEIGHT),
         .WINDOW_WIDTH (1),
-        .WINDOW_HEIGHT(5)
+        .WINDOW_HEIGHT(5),
+        .BORDER_ENABLE(BORDER_ENABLE)
     ) i_a_window_fetcher_v (
         .clk_i(clk_i),
         .rst_i(rst_i),
@@ -165,7 +169,7 @@ module zero_scale #(
         .window_o(i_a_wfv_window_w),
         .col_o   (i_a_wfv_col_w),
         .row_o   (i_a_wfv_row_w),
-        .valid_o (i_a_wfv_valid_w,)
+        .valid_o (i_a_wfv_valid_w)
     );
 
     logic [FP_WIDTH_REG - 1 : 0] i_a_gaussian_data_w;
@@ -173,7 +177,7 @@ module zero_scale #(
     logic [15:0]                 i_a_gaussian_row_w;
     logic                        i_a_gaussian_valid_w;
 
-    burt_h_0_fp16 i_a_burt_v (
+    burt_v_0_fp16 i_a_burt_v (
         .clk_i(clk_i),
         .rst_i(rst_i),
 
@@ -198,8 +202,9 @@ module zero_scale #(
         .DATA_WIDTH   (FP_WIDTH_REG),
         .IMAGE_WIDTH  (IMAGE_WIDTH),
         .IMAGE_HEIGHT (IMAGE_HEIGHT),
-        .WINDOW_WIDTH (WINDOW_WIDTH),
-        .WINDOW_HEIGHT(WINDOW_HEIGHT)
+        .WINDOW_WIDTH (2),
+        .WINDOW_HEIGHT(2),
+        .BORDER_ENABLE(BORDER_ENABLE)
     ) i_a_gaussian_window_fetcher (
         .clk_i(clk_i),
         .rst_i(rst_i),
@@ -257,7 +262,7 @@ module zero_scale #(
         .data_o (i_a_gdwz_data_w),
         .col_o  (i_a_gdwz_col_w),
         .row_o  (i_a_gdwz_row_w),
-        .valid_o(i_a_gdwz_valid_w),
+        .valid_o(i_a_gdwz_valid_w)
     );
 
     logic [FP_WIDTH_REG - 1 : 0] i_a_gdwzwf_window_w [3][3];
@@ -270,7 +275,8 @@ module zero_scale #(
         .IMAGE_WIDTH  (IMAGE_WIDTH),
         .IMAGE_HEIGHT (IMAGE_HEIGHT),
         .WINDOW_WIDTH (3),
-        .WINDOW_HEIGHT(3)
+        .WINDOW_HEIGHT(3),
+        .BORDER_ENABLE(BORDER_ENABLE)
     ) i_a_gaussian_downsampler_zero_fetcher (
         .clk_i(clk_i),
         .rst_i(rst_i),
@@ -318,9 +324,14 @@ module zero_scale #(
     // upsample 
 
     // assigning i_a_downsample
-    assign i_a_downsample_o   = i_a_gdw_data_w;
-    assign col_downsample_o   = i_a_gdw_col_w;
-    assign row_downsample_o   = i_a_gdw_row_w;
-    assign valid_downsample_o = i_a_gdw_valid_w;
+    //assign i_a_downsample_o   = i_a_gdw_data_w;
+    //assign col_downsample_o   = i_a_gdw_col_w;
+    //assign row_downsample_o   = i_a_gdw_row_w;
+    //assign valid_downsample_o = i_a_gdw_valid_w;
+
+    assign i_a_downsample_o   = i_a_gup_data_w;
+    assign col_downsample_o   = i_a_gup_col_w;
+    assign row_downsample_o   = i_a_gup_row_w;
+    assign valid_downsample_o = i_a_gup_valid_w;
 
 endmodule

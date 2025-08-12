@@ -38,7 +38,7 @@ module window_fetcher_z #(
     input  [15:0]               row_i,
     input                       valid_i,
 
-    output [DATA_WIDTH - 1 : 0] data_o [WINDOW_HEIGHT][WINDOW_WIDTH],
+    output [DATA_WIDTH - 1 : 0] data_o,
     output [15:0]               col_o,
     output [15:0]               row_o,
     output                      valid_o
@@ -122,6 +122,10 @@ module window_fetcher_z #(
                     window_center_row_next = 0;
                 end
             end
+            if(sof) begin
+                window_center_col_next = window_width_center_start_next;
+                window_center_row_next = window_height_center_start_next;
+            end
             if((window_center_col == (IMAGE_WIDTH - 1)) && (window_center_row == (IMAGE_HEIGHT - 1))) begin
                 initial_start_next = 1;
             end 
@@ -169,7 +173,7 @@ module window_fetcher_z #(
 
         w_data[0] = data;
         for(int r = 1; r < WINDOW_HEIGHT; r++) begin
-            w_data[r] = w_data[r];
+            w_data[r] = r_data[r-1];
         end
     end
 
@@ -259,7 +263,7 @@ module window_fetcher_z #(
         end 
     end
 
-    assign window_o = BORDER_ENABLE ? window_border_constant[WINDOW_HEIGHT_CENTER][WINDOW_WIDTH_CENTER] : window[WINDOW_HEIGHT_CENTER][WINDOW_WIDTH_CENTER];
+    assign data_o = BORDER_ENABLE ? window_border_constant[WINDOW_HEIGHT_CENTER][WINDOW_WIDTH_CENTER] : window[WINDOW_HEIGHT_CENTER][WINDOW_WIDTH_CENTER];
     assign col_o    = BORDER_ENABLE ? window_center_col_0    : window_center_col;
     assign row_o    = BORDER_ENABLE ? window_center_row_0    : window_center_row;
     assign valid_o  = BORDER_ENABLE ? valid_0                : valid && initial_start;

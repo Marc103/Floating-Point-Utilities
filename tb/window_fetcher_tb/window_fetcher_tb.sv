@@ -36,13 +36,13 @@ module window_fetcher_tb();
     localparam IMAGE_WIDTH  = 5;
     localparam IMAGE_HEIGHT = 5;
 
-    localparam WINDOW_WIDTH  = 3;
-    localparam WINDOW_HEIGHT = 3;
+    localparam WINDOW_WIDTH  = 5;
+    localparam WINDOW_HEIGHT = 5;
     localparam WINDOW_WIDTH_CENTER_OFFSET  = 0;
     localparam WINDOW_HEIGHT_CENTER_OFFSET = 0;
 
     localparam BORDER_EXTENSION_CONSTANT = 0;
-    localparam BORDER_ENABLE             = 0;
+    localparam BORDER_ENABLE             = 1;
     
     localparam real CLK_PERIOD = 10;
 
