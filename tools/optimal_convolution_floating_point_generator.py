@@ -254,9 +254,7 @@ endmodule""" % (KERNEL_2D_STR, module_name, str(EXP_WIDTH), str(FRAC_WIDTH), str
 if __name__ == "__main__":
     EXP_WIDTH = 5
     FRAC_WIDTH = 10
-    KERNEL = [[1/4,1/2,1/4], 
-              [1/2,1  ,1/2],
-              [1/4,1/2,1/4]]
+    KERNEL = [[1,1,1]]
     
-    generate_optimal_convolution_floating_point(EXP_WIDTH, FRAC_WIDTH, KERNEL, "upsampler_0_fp16")
+    generate_optimal_convolution_floating_point(EXP_WIDTH, FRAC_WIDTH, KERNEL, "pass_dx_dy_adder_fp16")
 

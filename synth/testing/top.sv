@@ -447,7 +447,7 @@ module top #(
     always@(posedge core_clk) wr_sof_sbo_delay <= ((col_out == (ROI_WIDTH-1)) && (row_out == (ROI_HEIGHT - 1)));
 
     fp16_u8_converter #(
-        .LEAD_EXPONENT_UNBIASED(7)
+        .LEAD_EXPONENT_UNBIASED(3)
     ) cam_0_fp16_u8_converter (
         .clk_i(core_clk),
         .rst_i(sys_reset),
