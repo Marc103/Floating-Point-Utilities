@@ -414,8 +414,8 @@ module top #(
         end
     end
 
-    assign col_in_0 = rd_sof_sbi_delay && valid_in ? 0 : row_in;
-    assign row_in_0 = rd_sof_sbi_delay && valid_in ? 0 : col_in;
+    assign col_in_0 = rd_sof_sbi_delay && valid_in ? 0 : col_in;
+    assign row_in_0 = rd_sof_sbi_delay && valid_in ? 0 : row_in;
 
     // main processing elements ----------------------------
     logic [15:0] fp16_out;

@@ -28,6 +28,7 @@ module zero_scale_fp16 #(
     input                         valid_i,
 
     input [FP_WIDTH_REG - 1 : 0]  w_i [3], // weights
+    input [FP_WIDTH_REG - 1 : 0]  w_t_i,   // sum of weights  
     input [FP_WIDTH_REG - 1 : 0]  a_i,
     input [FP_WIDTH_REG - 1 : 0]  b_i,     
 
@@ -37,9 +38,8 @@ module zero_scale_fp16 #(
     output [15:0]                 row_downsample_o,
     output                        valid_downsample_o,
 
-    output [FP_WIDTH_REG - 1 : 0] z_o,
+    output [FP_WIDTH_REG - 1 : 0] v_o,
     output [FP_WIDTH_REG - 1 : 0] w_o, // big W
-    output [FP_WIDTH_REG - 1 : 0] c_o,
     output [15:0]                 col_o,
     output [15:0]                 row_o,
     output                        valid_o
@@ -87,7 +87,7 @@ module zero_scale_fp16 #(
         upsampler_3_3_kernel_w[2][2] = 16'h3400;
     end
 
-    logic [FP_WIDTH_REG - 1 : 0] pass_3_3_kernel_w;
+    logic [FP_WIDTH_REG - 1 : 0] pass_3_3_kernel_w [3][3];
     always_comb begin
         pass_3_3_kernel_w[0][0] = 16'h0000;
         pass_3_3_kernel_w[0][1] = 16'h0000;
@@ -100,7 +100,7 @@ module zero_scale_fp16 #(
         pass_3_3_kernel_w[2][2] = 16'h0000;
     end
 
-    logic [FP_WIDTH_REG - 1 : 0] dx_3_3_kernel_w;
+    logic [FP_WIDTH_REG - 1 : 0] dx_3_3_kernel_w [3][3];
     always_comb begin
         dx_3_3_kernel_w[0][0] = 16'h0000;
         dx_3_3_kernel_w[0][1] = 16'h0000;
@@ -113,7 +113,7 @@ module zero_scale_fp16 #(
         dx_3_3_kernel_w[2][2] = 16'h0000;
     end
 
-    logic [FP_WIDTH_REG - 1 : 0] dy_3_3_kernel_w;
+    logic [FP_WIDTH_REG - 1 : 0] dy_3_3_kernel_w [3][3];
     always_comb begin
         dy_3_3_kernel_w[0][0] = 16'h0000;
         dy_3_3_kernel_w[0][1] = 16'hbc00;
@@ -124,6 +124,13 @@ module zero_scale_fp16 #(
         dy_3_3_kernel_w[2][0] = 16'h0000;
         dy_3_3_kernel_w[2][1] = 16'h3c00;
         dy_3_3_kernel_w[2][2] = 16'h0000;
+    end
+
+    logic [FP_WIDTH_REG - 1 : 0] acc_kernel_w [1][3];
+    always_comb begin
+        acc_kernel_w[0][0] = 16'h3c00;
+        acc_kernel_w[0][1] = 16'h3c00;
+        acc_kernel_w[0][2] = 16'h3c00;
     end
 
     ////////////////////////////////////////////////////////////////
@@ -628,7 +635,7 @@ module zero_scale_fp16 #(
         .WINDOW_WIDTH (5),
         .WINDOW_HEIGHT(1),
         .BORDER_ENABLE(BORDER_ENABLE)
-    ) i_a_window_fetcher_h (
+    ) i_t_window_fetcher_h (
         .clk_i(clk_i),
         .rst_i(rst_i),
 
@@ -744,7 +751,7 @@ module zero_scale_fp16 #(
     logic [15:0]                 i_t_gdw_row_w;
     logic                        i_t_gdw_valid_w;
 
-    downsampler_0_fp16 i_a_gaussian_downsampler (
+    downsampler_0_fp16 i_t_gaussian_downsampler (
         .clk_i(clk_i),
         .rst_i(rst_i),
 
@@ -1140,8 +1147,8 @@ module zero_scale_fp16 #(
         .clk_i(clk_i),
         .rst_i(rst_i),
         .fp_a_i (v_data_w [1]),
-        .valid_i(v_valid_w[1])
-        .fp_o   (v_data_w [2])
+        .valid_i(v_valid_w[1]),
+        .fp_o   (v_data_w [2]),
         .valid_o(v_valid_w[2])
     );
 
@@ -1182,7 +1189,7 @@ module zero_scale_fp16 #(
         .clk_i(clk_i),
         .rst_i(rst_i),
         .fp_a_i (i_t_gup_data_b_w),
-        .valid_i(i_t_gup_valid_b_w)
+        .valid_i(i_t_gup_valid_b_w),
         .fp_o   (i_t_data_w [0]),
         .valid_o(i_t_valid_w[0])
     );
@@ -1216,7 +1223,7 @@ module zero_scale_fp16 #(
         .clk_i(clk_i),
         .rst_i(rst_i),
         .fp_a_i (i_t_data_w [0]),
-        .valid_i(i_t_valid_w[0])
+        .valid_i(i_t_valid_w[0]),
         .fp_o   (i_t_data_w [1]),
         .valid_o(i_t_valid_w[1])
     );
@@ -1250,7 +1257,7 @@ module zero_scale_fp16 #(
         .clk_i(clk_i),
         .rst_i(rst_i),
         .fp_a_i (i_t_data_w [1]),
-        .valid_i(i_t_valid_w[1])
+        .valid_i(i_t_valid_w[1]),
         .fp_o   (i_t_data_w [2]),
         .valid_o(i_t_valid_w[2])
     );
@@ -1286,14 +1293,14 @@ module zero_scale_fp16 #(
         .rst_i(rst_i),
         .fp_a_i(v_data_w[0]),
         .fp_b_i(b_i),
-        .fp_o(v_b_data_w),
+        .fp_o(v_b_data_w)
     );
 
     // ----------------------------- V_B - i_t
     logic [FP_WIDTH_REG - 1 : 0] i_t_data_negative_w;
     always_comb begin
-        i_t_data_negative[FP_WIDTH_REG - 1]     = !i_t_data_w[2][FP_WIDTH_REG - 1];
-        i_t_data_negative[FP_WIDTH_REG - 2 : 0] = i_t_data_w[2][FP_WIDTH_REG - 2 : 0];
+        i_t_data_negative_w[FP_WIDTH_REG - 1]     = !i_t_data_w[2][FP_WIDTH_REG - 1];
+        i_t_data_negative_w[FP_WIDTH_REG - 2 : 0] = i_t_data_w[2][FP_WIDTH_REG - 2 : 0];
     end
 
     logic [FP_WIDTH_REG - 1 : 0] w_data_w;
@@ -1306,11 +1313,12 @@ module zero_scale_fp16 #(
         .rst_i(rst_i),
         .fp_a_i (v_b_data_w),
         .fp_b_i (i_t_data_negative_w),
-        .fp_o   (w_data_w),
+        .fp_o   (w_data_w)
     ); 
 
     ////////////////////////////////////////////////////////////////
     // V and W window fetchers (depending on if DX_DY_ENABLE)
+    // convolutions, multiply by weights and finally accumulate
     logic [FP_WIDTH_REG - 1 : 0] v_wf_window_w [3][3];
     logic [15:0]                 v_wf_col_w;
     logic [15:0]                 v_wf_row_w;
@@ -1332,12 +1340,23 @@ module zero_scale_fp16 #(
     logic [FP_WIDTH_REG - 1 : 0] w_dx_data_w;
     logic [FP_WIDTH_REG - 1 : 0] w_dy_data_w;
 
-    logic [FP_WIDTH_REG - 1 : 0] v_added_data;
+    logic [FP_WIDTH_REG - 1 : 0] v_pass_data_weighted_w;
+    logic [FP_WIDTH_REG - 1 : 0] v_dx_data_weighted_w;
+    logic [FP_WIDTH_REG - 1 : 0] v_dy_data_weighted_w;
+    logic [15:0]                 v_pass_col_weighted_w;
+    logic [15:0]                 v_pass_row_weighted_w;
+    logic                        v_pass_valid_weighted_w;
+
+    logic [FP_WIDTH_REG - 1 : 0] w_pass_data_weighted_w;
+    logic [FP_WIDTH_REG - 1 : 0] w_dx_data_weighted_w;
+    logic [FP_WIDTH_REG - 1 : 0] w_dy_data_weighted_w;
+
+    logic [FP_WIDTH_REG - 1 : 0] v_added_data_w;
     logic [15:0]                 v_added_col_w;
     logic [15:0]                 v_added_row_w;
     logic [15:0]                 v_added_valid_w;
 
-    logic [FP_WIDTH_REG - 1 : 0] w_added_data;
+    logic [FP_WIDTH_REG - 1 : 0] w_added_data_w;
 
     generate
         if(DX_DY_ENABLE != 0) begin
@@ -1383,15 +1402,16 @@ module zero_scale_fp16 #(
                 .valid_o (w_wf_valid_w)
             );
 
+            // ----- V derivatives -------
             pass_0_fp16 v_pass (
                 .clk_i(clk_i),
                 .rst_i(rst_i),
 
                 .window_i(v_wf_window_w),
                 .kernel_i(pass_3_3_kernel_w),
-                .col_i   (w_wf_col_w),
-                .row_i   (w_wf_row_w),
-                .valid_i (w_wf_valid_w),
+                .col_i   (v_wf_col_w),
+                .row_i   (v_wf_row_w),
+                .valid_i (v_wf_valid_w),
 
                 .data_o (v_pass_data_w),
                 .col_o  (v_pass_col_w),
@@ -1404,7 +1424,7 @@ module zero_scale_fp16 #(
                 .rst_i(rst_i),
                 .window_i(v_wf_window_w),
                 .kernel_i(dx_3_3_kernel_w),
-                .data_o  (dx_pass_data_w),
+                .data_o  (v_dx_data_w)
             );
 
             dy_0_fp16 v_dy (
@@ -1412,12 +1432,207 @@ module zero_scale_fp16 #(
                 .rst_i(rst_i),
                 .window_i(v_wf_window_w),
                 .kernel_i(dy_3_3_kernel_w),
-                .data_o  (dy_pass_data_w),
+                .data_o  (v_dy_data_w)
             );
 
+            // ----- W derivatives -------
+            pass_0_fp16 w_pass (
+                .clk_i(clk_i),
+                .rst_i(rst_i),
 
+                .window_i(w_wf_window_w),
+                .kernel_i(pass_3_3_kernel_w),
+                .data_o  (w_pass_data_w)
+            );
+
+            dx_0_fp16 w_dx (
+                .clk_i(clk_i),
+                .rst_i(rst_i),
+                .window_i(w_wf_window_w),
+                .kernel_i(dx_3_3_kernel_w),
+                .data_o  (w_dx_data_w)
+            );
+
+            dy_0_fp16 w_dy (
+                .clk_i(clk_i),
+                .rst_i(rst_i),
+                .window_i(w_wf_window_w),
+                .kernel_i(dy_3_3_kernel_w),
+                .data_o  (w_dy_data_w)
+            );
+
+            // ----- V weighted (and row col delay) -------
+            floating_point_multiplier #(
+                .EXP_WIDTH (EXP_WIDTH),
+                .FRAC_WIDTH(FRAC_WIDTH)
+            ) v_pass_weighted (
+                .clk_i(clk_i),
+                .rst_i(rst_i),
+                .fp_a_i (v_pass_data_w),
+                .fp_b_i (w_i[0]),
+                .valid_i(v_pass_valid_w),
+                .fp_o   (v_pass_data_weighted_w),
+                .valid_o(v_pass_valid_weighted_w)
+            );
+
+            floating_point_multiplier #(
+                .EXP_WIDTH (EXP_WIDTH),
+                .FRAC_WIDTH(FRAC_WIDTH)
+            ) v_dx_weighted (
+                .clk_i(clk_i),
+                .rst_i(rst_i),
+                .fp_a_i (v_dx_data_w),
+                .fp_b_i (w_i[1]),
+                .fp_o   (v_dx_data_weighted_w)
+            );
+
+            floating_point_multiplier #(
+                .EXP_WIDTH (EXP_WIDTH),
+                .FRAC_WIDTH(FRAC_WIDTH)
+            ) v_dy_weighted (
+                .clk_i(clk_i),
+                .rst_i(rst_i),
+                .fp_a_i (v_dy_data_w),
+                .fp_b_i (w_i[2]),
+                .fp_o   (v_dy_data_weighted_w)
+            );
+
+            floating_point_multiplier_z #(
+                .EXP_WIDTH(0),
+                .FRAC_WIDTH(15)
+            ) v_pass_col_w_delay (
+                .clk_i(clk_i),
+                .rst_i(rst_i),
+                .fp_a_i(v_pass_col_w),
+                .fp_o  (v_pass_col_weighted_w)
+            );
+
+            floating_point_multiplier_z #(
+                .EXP_WIDTH(0),
+                .FRAC_WIDTH(15)
+            ) v_pass_row_w_delay (
+                .clk_i(clk_i),
+                .rst_i(rst_i),
+                .fp_a_i(v_pass_row_w),
+                .fp_o  (v_pass_row_weighted_w)
+            );
+
+            // ----- W weighted -------
+            floating_point_multiplier #(
+                .EXP_WIDTH (EXP_WIDTH),
+                .FRAC_WIDTH(FRAC_WIDTH)
+            ) w_pass_weighted (
+                .clk_i(clk_i),
+                .rst_i(rst_i),
+                .fp_a_i (w_pass_data_w),
+                .fp_b_i (w_i[0]),
+                .fp_o   (w_pass_data_weighted_w)
+            );
+
+            floating_point_multiplier #(
+                .EXP_WIDTH (EXP_WIDTH),
+                .FRAC_WIDTH(FRAC_WIDTH)
+            ) w_dx_weighted (
+                .clk_i(clk_i),
+                .rst_i(rst_i),
+                .fp_a_i (w_dx_data_w),
+                .fp_b_i (w_i[1]),
+                .fp_o   (w_dx_data_weighted_w)
+            );
+
+            floating_point_multiplier #(
+                .EXP_WIDTH (EXP_WIDTH),
+                .FRAC_WIDTH(FRAC_WIDTH)
+            ) w_dy_weighted (
+                .clk_i(clk_i),
+                .rst_i(rst_i),
+                .fp_a_i (w_dy_data_w),
+                .fp_b_i (w_i[2]),
+                .fp_o   (w_dy_data_weighted_w)
+            );
+
+            // ----- V Accumulate -------
+            pass_dx_dy_adder_fp16 v_accumulate (
+                .clk_i(clk_i),
+                .rst_i(rst_i),
+
+                .window_i('{v_pass_data_weighted_w, v_dx_data_weighted_w, v_dy_data_weighted_w}),
+                .kernel_i(acc_kernel_w),
+                .col_i   (v_pass_col_weighted_w),
+                .row_i   (v_pass_row_weighted_w),
+                .valid_i (v_pass_valid_weighted_w),
+
+                .data_o (v_added_data_w),
+                .col_o  (v_added_col_w),
+                .row_o  (v_added_row_w),
+                .valid_o(v_added_valid_w)
+            );
+
+            // ----- W Accumulate -------
+            pass_dx_dy_adder_fp16 w_accumulate (
+                .clk_i(clk_i),
+                .rst_i(rst_i),
+                .window_i('{w_pass_data_weighted_w, w_dx_data_weighted_w, w_dy_data_weighted_w}),
+                .kernel_i(acc_kernel_w),
+                .data_o  (w_added_data_w)
+            );
+        end else begin
+             // ----- V weighted (and row col delay) -------
+            floating_point_multiplier #(
+                .EXP_WIDTH (EXP_WIDTH),
+                .FRAC_WIDTH(FRAC_WIDTH)
+            ) v_pass_weighted (
+                .clk_i(clk_i),
+                .rst_i(rst_i),
+                .fp_a_i (v_data_w[2]),
+                .fp_b_i (w_i[0]),
+                .valid_i(v_pass_valid_w),
+                .fp_o   (v_pass_data_weighted_w),
+                .valid_o(v_pass_valid_weighted_w)
+            );
+
+            floating_point_multiplier_z #(
+                .EXP_WIDTH(0),
+                .FRAC_WIDTH(15)
+            ) v_pass_col_w_delay (
+                .clk_i(clk_i),
+                .rst_i(rst_i),
+                .fp_a_i(v_col_w[2]),
+                .fp_o  (v_pass_col_weighted_w)
+            );
+
+            floating_point_multiplier_z #(
+                .EXP_WIDTH(0),
+                .FRAC_WIDTH(15)
+            ) v_pass_row_w_delay (
+                .clk_i(clk_i),
+                .rst_i(rst_i),
+                .fp_a_i(v_row_w[2]),
+                .fp_o  (v_pass_row_weighted_w)
+            );
+
+            // ----- W weighted -------
+            floating_point_multiplier #(
+                .EXP_WIDTH (EXP_WIDTH),
+                .FRAC_WIDTH(FRAC_WIDTH)
+            ) w_pass_weighted (
+                .clk_i(clk_i),
+                .rst_i(rst_i),
+                .fp_a_i (w_data_w),
+                .fp_b_i (w_i[0]),
+                .fp_o   (w_pass_data_weighted_w)
+            );
         end
     endgenerate
+
+    ////////////////////////////////////////////////////////////////
+    // Assigning V and W outs
+    assign v_o      = DX_DY_ENABLE != 0 ? v_added_data_w : v_pass_data_weighted_w;
+    assign w_o      = DX_DY_ENABLE != 0 ? w_added_data_w : w_pass_data_weighted_w;
+    assign col_o    = v_pass_col_weighted_w;
+    assign row_o    = v_pass_row_weighted_w;
+    assign valid_o  = v_pass_valid_weighted_w;
+    
 
     ////////////////////////////////////////////////////////////////
     // Assigning i_a and i_t downsampled outputs
@@ -1433,5 +1648,4 @@ module zero_scale_fp16 #(
     assign col_downsample_o   = laplacian_col_w;
     assign row_downsample_o   = laplacian_row_w;
     assign valid_downsample_o = laplacian_valid_w;
-
 endmodule
