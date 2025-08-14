@@ -37,6 +37,7 @@ verific -sv ../../rtl/third_party/i2c_initializer.sv \
             ../../projects/dfdd/dx_0_fp16.sv        \
             ../../projects/dfdd/dy_0_fp16.sv        \
             ../../projects/dfdd/pass_0_fp16.sv      \
+            ../../projects/dfdd/pass_dx_dy_adder_fp16.sv \
             \
             ../../rtl/zero_latency_buffer.sv \
             ../../rtl/stream_buffer.sv \
@@ -45,4 +46,4 @@ verific -sv ../../rtl/third_party/i2c_initializer.sv \
             pll.sv \
             top.sv
 
-synth_ecp5 -noflatten -top top -json top.json
+synth_ecp5 -top top -json top.json

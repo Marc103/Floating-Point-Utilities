@@ -43,8 +43,9 @@ module top #(
 
     // Output Stream Deserializer
     parameter        DES_CHANNEL_DATA_WIDTH = DATA_WIDTH_O,
-    parameter [63:0] MAGIC_NUM = 64'h42_49_56_46_52_41_4D_45
+    parameter [63:0] MAGIC_NUM = 64'h42_49_56_46_52_41_4D_45,
                                   //  B  I  V  F  R  A  M  E 
+    parameter DX_DY_ENABLE = 1
 ) (
     ////////////////////////////////
     // Dev board connections
@@ -419,27 +420,51 @@ module top #(
 
     // main processing elements ----------------------------
     logic [15:0] fp16_out;
+    logic [15:0] fp_v;
+    logic [15:0] fp_w;
+    logic [15:0] fp_iad;
+    logic [15:0] fp_itd;
+    assign fp16_out = fp_v + fp_w + fp_iad + fp_itd;
     logic valid_out;
     logic [15:0] col_out;
     logic [15:0] row_out;
 
+    logic [15:0] w [3];
+    logic [15:0] a;
+    logic [15:0] b;
+    assign w = '{16'h3c00,16'h3c00,16'h3c00};
+    assign a = 16'h4000;
+    assign b = 16'h3c00;
+
     zero_scale_fp16 #(
         .IMAGE_WIDTH(ROI_WIDTH),
         .IMAGE_HEIGHT(ROI_HEIGHT),
-        .BORDER_ENABLE(0)
+        .BORDER_ENABLE(0),
+        .DX_DY_ENABLE(DX_DY_ENABLE)
     ) zero_scale (
         .clk_i(core_clk),
         .rst_i(sys_reset),
 
         .i_a_i(fp16_in),
+        .i_t_i(fp16_in),
         .col_i(col_in),
         .row_i(row_in),
         .valid_i(valid_in),
 
-        .i_a_downsample_o(fp16_out),
-        .col_downsample_o(col_out),
-        .row_downsample_o(row_out),
-        .valid_downsample_o(valid_out)
+        .w_i(w),
+        .w_t_i(),
+
+        .i_a_downsample_o(fp_iad),
+        .i_t_downsample_o(fp_itd),
+        //.col_downsample_o(col_out),
+        //.row_downsample_o(row_out),
+        //.valid_downsample_o(valid_out),
+
+        .v_o(fp_v),
+        .w_o(fp_w),
+        .col_o(col_out),
+        .row_o(row_out),
+        .valid_o(valid_out)
     );
 
     // fp16 to u8 conversions -------------------------------
@@ -447,7 +472,7 @@ module top #(
     always@(posedge core_clk) wr_sof_sbo_delay <= ((col_out == (ROI_WIDTH-1)) && (row_out == (ROI_HEIGHT - 1)));
 
     fp16_u8_converter #(
-        .LEAD_EXPONENT_UNBIASED(3)
+        .LEAD_EXPONENT_UNBIASED(5)
     ) cam_0_fp16_u8_converter (
         .clk_i(core_clk),
         .rst_i(sys_reset),

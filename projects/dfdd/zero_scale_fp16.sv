@@ -71,7 +71,7 @@ module zero_scale_fp16 #(
         box_2_2_kernel_w[0][0] = 16'h3400;
         box_2_2_kernel_w[0][1] = 16'h3400;
         box_2_2_kernel_w[1][0] = 16'h3400;
-        box_2_2_kernel_w[0][1] = 16'h3400;
+        box_2_2_kernel_w[1][1] = 16'h3400;
     end
 
     logic [FP_WIDTH_REG - 1 : 0] upsampler_3_3_kernel_w [3][3];
@@ -1351,6 +1351,16 @@ module zero_scale_fp16 #(
     logic [FP_WIDTH_REG - 1 : 0] w_dx_data_weighted_w;
     logic [FP_WIDTH_REG - 1 : 0] w_dy_data_weighted_w;
 
+    logic [FP_WIDTH_REG - 1 : 0] v_concat_w [1][3];
+    assign v_concat_w[0][0] = v_pass_data_weighted_w;
+    assign v_concat_w[0][1] = v_dx_data_weighted_w;
+    assign v_concat_w[0][2] = v_dy_data_weighted_w;
+
+    logic [FP_WIDTH_REG - 1 : 0] w_concat_w [1][3];
+    assign w_concat_w[0][0] = w_pass_data_weighted_w;
+    assign w_concat_w[0][1] = w_dx_data_weighted_w;
+    assign w_concat_w[0][2] = w_dy_data_weighted_w;
+
     logic [FP_WIDTH_REG - 1 : 0] v_added_data_w;
     logic [15:0]                 v_added_col_w;
     logic [15:0]                 v_added_row_w;
@@ -1556,7 +1566,7 @@ module zero_scale_fp16 #(
                 .clk_i(clk_i),
                 .rst_i(rst_i),
 
-                .window_i('{v_pass_data_weighted_w, v_dx_data_weighted_w, v_dy_data_weighted_w}),
+                .window_i(v_concat_w),
                 .kernel_i(acc_kernel_w),
                 .col_i   (v_pass_col_weighted_w),
                 .row_i   (v_pass_row_weighted_w),
@@ -1572,7 +1582,7 @@ module zero_scale_fp16 #(
             pass_dx_dy_adder_fp16 w_accumulate (
                 .clk_i(clk_i),
                 .rst_i(rst_i),
-                .window_i('{w_pass_data_weighted_w, w_dx_data_weighted_w, w_dy_data_weighted_w}),
+                .window_i(w_concat_w),
                 .kernel_i(acc_kernel_w),
                 .data_o  (w_added_data_w)
             );
@@ -1629,23 +1639,17 @@ module zero_scale_fp16 #(
     // Assigning V and W outs
     assign v_o      = DX_DY_ENABLE != 0 ? v_added_data_w : v_pass_data_weighted_w;
     assign w_o      = DX_DY_ENABLE != 0 ? w_added_data_w : w_pass_data_weighted_w;
-    assign col_o    = v_pass_col_weighted_w;
-    assign row_o    = v_pass_row_weighted_w;
-    assign valid_o  = v_pass_valid_weighted_w;
+    assign col_o    = DX_DY_ENABLE != 0 ? v_added_col_w  : v_pass_col_weighted_w;
+    assign row_o    = DX_DY_ENABLE != 0 ? v_added_row_w  : v_pass_row_weighted_w;
+    assign valid_o  = DX_DY_ENABLE != 0 ? v_added_valid_w: v_pass_valid_weighted_w;
     
 
     ////////////////////////////////////////////////////////////////
     // Assigning i_a and i_t downsampled outputs
-    /*
     assign i_a_downsample_o   = i_a_gdw_data_w;
     assign i_t_downsample_o   = i_t_gdw_data_w;
     assign col_downsample_o   = i_a_gdw_col_w;
     assign row_downsample_o   = i_a_gdw_row_w;
     assign valid_downsample_o = i_a_gdw_valid_w;
-    */
 
-    assign i_a_downsample_o   = laplacian_data_w;
-    assign col_downsample_o   = laplacian_col_w;
-    assign row_downsample_o   = laplacian_row_w;
-    assign valid_downsample_o = laplacian_valid_w;
 endmodule
