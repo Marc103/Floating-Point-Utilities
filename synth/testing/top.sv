@@ -363,8 +363,8 @@ module top #(
     logic rd_sof_sbi_delay;
     always@(posedge core_clk) rd_sof_sbi_delay <= rd_sof_sbi_w;
 
-    logic [15:0] fp16_in;
-    logic        valid_in;
+    logic [15:0] fp16_in_0;
+    logic        valid_in_0;
     
     uint8_fp16_converter cam_0_uint8_fp16_converter (
         .clk_i(core_clk),
@@ -373,8 +373,8 @@ module top #(
         .uint8_i(rd_channels_sbi_w[0]),
         .valid_i(rd_valid_sbi_w),
 
-        .fp16_o(fp16_in),
-        .valid_o(valid_in)
+        .fp16_o(fp16_in_0),
+        .valid_o(valid_in_0)
     );
 
     logic [15:0] col_in;
@@ -398,7 +398,7 @@ module top #(
         col_in_next = col_in;
         row_in_next = row_in;
 
-        if(valid_in) begin
+        if(valid_in_0) begin
             col_in_next = col_in + 1;
             if(col_in == (ROI_WIDTH - 1)) begin
                 col_in_next = 0;
@@ -409,14 +409,14 @@ module top #(
             end
         end
         
-        if(rd_sof_sbi_delay && valid_in) begin
+        if(rd_sof_sbi_delay && valid_in_0) begin
             col_in_next = 1;
             row_in_next = 0;
         end
     end
 
-    assign col_in_0 = rd_sof_sbi_delay && valid_in ? 0 : col_in;
-    assign row_in_0 = rd_sof_sbi_delay && valid_in ? 0 : row_in;
+    assign col_in_0 = rd_sof_sbi_delay && valid_in_0 ? 0 : col_in;
+    assign row_in_0 = rd_sof_sbi_delay && valid_in_0 ? 0 : row_in;
 
     // main processing elements ----------------------------
     logic [15:0] fp16_out;
@@ -445,22 +445,22 @@ module top #(
         .clk_i(core_clk),
         .rst_i(sys_reset),
 
-        .i_a_i(fp16_in),
-        .i_t_i(fp16_in),
-        .col_i(col_in),
-        .row_i(row_in),
-        .valid_i(valid_in),
+        .i_a_i(fp16_in_0),
+        .i_t_i(fp16_in_0),
+        .col_i(col_in_0),
+        .row_i(row_in_0),
+        .valid_i(valid_in_0),
 
         .w_i(w),
         .w_t_i(),
 
-        .i_a_downsample_o(fp_iad),
-        .i_t_downsample_o(fp_itd),
+        //.i_a_downsample_o(fp16_out),
+        //.i_t_downsample_o(fp_itd),
         //.col_downsample_o(col_out),
         //.row_downsample_o(row_out),
-        //.valid_downsample_o(valid_out)
+        //.valid_downsample_o(valid_out),
 
-        .v_o(fp_v),
+        //.v_o(fp_v)
         .w_o(fp16_out),
         .col_o(col_out),
         .row_o(row_out),
@@ -469,12 +469,11 @@ module top #(
 
     // fp16 to u8 conversions -------------------------------
     logic wr_sof_sbo_delay;
-    always@(posedge core_clk) begin 
-        wr_sof_sbo_delay <= ((col_out == (ROI_WIDTH-1)) && (row_out == (ROI_HEIGHT - 1)));
-    end
+    always@(posedge core_clk) wr_sof_sbo_delay <= ((col_out == 0) && (row_out == 0));
+   
 
     fp16_u8_converter #(
-        .LEAD_EXPONENT_UNBIASED(7)
+        .LEAD_EXPONENT_UNBIASED(5)
     ) cam_0_fp16_u8_converter (
         .clk_i(core_clk),
         .rst_i(sys_reset),

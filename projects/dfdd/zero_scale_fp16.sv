@@ -1646,10 +1646,10 @@ module zero_scale_fp16 #(
 
     ////////////////////////////////////////////////////////////////
     // Assigning i_a and i_t downsampled outputs
-    assign i_a_downsample_o   = i_a_gdw_data_w;
+    assign i_a_downsample_o   = i_a_gdwz_data_w;
     assign i_t_downsample_o   = i_t_gdw_data_w;
-    assign col_downsample_o   = i_a_gdw_col_w;
-    assign row_downsample_o   = i_a_gdw_row_w;
-    assign valid_downsample_o = i_a_gdw_valid_w;
+    assign col_downsample_o   = i_a_gdwz_col_w;
+    assign row_downsample_o   = i_a_gdwz_row_w;
+    assign valid_downsample_o = i_a_gdwz_valid_w;
 
 endmodule
