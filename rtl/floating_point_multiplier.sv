@@ -228,7 +228,7 @@
 
         if(mult_by_zero[1]) begin
             fp_exp_1 = 0;
-            fp_frac_ex = 0;
+            fp_frac_ex_1 = 0;
         end
     end
 
