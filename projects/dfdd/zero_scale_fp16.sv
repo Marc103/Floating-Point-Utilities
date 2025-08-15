@@ -1596,7 +1596,7 @@ module zero_scale_fp16 #(
                 .rst_i(rst_i),
                 .fp_a_i (v_data_w[2]),
                 .fp_b_i (w_i[0]),
-                .valid_i(v_pass_valid_w),
+                .valid_i(v_valid_w[2]),
                 .fp_o   (v_pass_data_weighted_w),
                 .valid_o(v_pass_valid_weighted_w)
             );

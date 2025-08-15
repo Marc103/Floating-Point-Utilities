@@ -424,7 +424,7 @@ module top #(
     logic [15:0] fp_w;
     logic [15:0] fp_iad;
     logic [15:0] fp_itd;
-    assign fp16_out = fp_v + fp_w + fp_iad + fp_itd;
+    //assign fp16_out = fp_v + fp_w + fp_iad + fp_itd;
     logic valid_out;
     logic [15:0] col_out;
     logic [15:0] row_out;
@@ -432,7 +432,7 @@ module top #(
     logic [15:0] w [3];
     logic [15:0] a;
     logic [15:0] b;
-    assign w = '{16'h3c00,16'h3c00,16'h3c00};
+    assign w = '{16'hbc00,16'h3c00,16'h3c00};
     assign a = 16'h4000;
     assign b = 16'h3c00;
 
@@ -440,7 +440,7 @@ module top #(
         .IMAGE_WIDTH(ROI_WIDTH),
         .IMAGE_HEIGHT(ROI_HEIGHT),
         .BORDER_ENABLE(0),
-        .DX_DY_ENABLE(DX_DY_ENABLE)
+        .DX_DY_ENABLE(1)
     ) zero_scale (
         .clk_i(core_clk),
         .rst_i(sys_reset),
@@ -458,10 +458,10 @@ module top #(
         .i_t_downsample_o(fp_itd),
         //.col_downsample_o(col_out),
         //.row_downsample_o(row_out),
-        //.valid_downsample_o(valid_out),
+        //.valid_downsample_o(valid_out)
 
         .v_o(fp_v),
-        .w_o(fp_w),
+        .w_o(fp16_out),
         .col_o(col_out),
         .row_o(row_out),
         .valid_o(valid_out)
@@ -469,10 +469,12 @@ module top #(
 
     // fp16 to u8 conversions -------------------------------
     logic wr_sof_sbo_delay;
-    always@(posedge core_clk) wr_sof_sbo_delay <= ((col_out == (ROI_WIDTH-1)) && (row_out == (ROI_HEIGHT - 1)));
+    always@(posedge core_clk) begin 
+        wr_sof_sbo_delay <= ((col_out == (ROI_WIDTH-1)) && (row_out == (ROI_HEIGHT - 1)));
+    end
 
     fp16_u8_converter #(
-        .LEAD_EXPONENT_UNBIASED(5)
+        .LEAD_EXPONENT_UNBIASED(7)
     ) cam_0_fp16_u8_converter (
         .clk_i(core_clk),
         .rst_i(sys_reset),

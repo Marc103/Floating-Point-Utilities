@@ -46,4 +46,6 @@ verific -sv ../../rtl/third_party/i2c_initializer.sv \
             pll.sv \
             top.sv
 
+#synth_ecp5 -top top -json top.json
 synth_ecp5 -top top -json top.json
+
