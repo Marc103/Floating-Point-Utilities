@@ -123,7 +123,9 @@
     logic signed   [EXP_WIDTH + 2 - 1 : 0]      fp_exp_s;
     logic                                       fp_sign;
     logic unsigned [EXP_WIDTH - 1 : 0]          fp_exp;
-    logic          [FRAC_EX_WIDTH - 1 : 0]      fp_frac_ex;        
+    logic          [FRAC_EX_WIDTH - 1 : 0]      fp_frac_ex;
+
+    logic                                       mult_by_zero[2];        
 
     ////////////////////////////////////////////////////////////////
     // Stage 1
@@ -142,15 +144,10 @@
         fp_b_frac  = fp_b_reg[FRAC_IDX_MSB : FRAC_IDX_LSB];
         fp_b_round = 0;
 
-        if(fp_a_exp == 0) begin 
-            fp_a_lead = 0;
-            fp_a_frac = 0;
-            fp_a_exp = 1;
-        end 
-        if(fp_b_exp == 0) begin 
-            fp_b_lead = 0;
-            fp_b_frac = 0;
-            fp_b_exp = 1;
+        if((fp_a_exp == 0) || (fp_b_exp == 0)) begin
+            mult_by_zero[0] = 1;
+        end else begin
+            mult_by_zero[0] = 0;
         end
 
         fp_a_frac_ex = {fp_a_carry, fp_a_lead, fp_a_frac, fp_a_round};
@@ -190,9 +187,10 @@
     logic                                       valid_reg_1;
 
     always_ff @(posedge clk_i) begin
-        fp_sign_reg    <= fp_sign;
-        fp_exp_reg     <= fp_exp;
-        fp_frac_ex_reg <= fp_frac_ex;
+        fp_sign_reg     <= fp_sign;
+        fp_exp_reg      <= fp_exp;
+        fp_frac_ex_reg  <= fp_frac_ex;
+        mult_by_zero[1] <= mult_by_zero[0]
         if(rst_i) begin
             valid_reg_1 <= 0;
         end else begin  
@@ -226,6 +224,11 @@
             if(fp_exp_1 != EXP_MAX) begin
                 fp_exp_1 = fp_exp_1 + 1;
             end
+        end
+
+        if(mult_by_zero[1]) begin
+            fp_exp_1 = 0;
+            fp_frac_ex = 0;
         end
     end
 
