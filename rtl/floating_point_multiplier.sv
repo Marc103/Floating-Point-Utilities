@@ -190,7 +190,7 @@
         fp_sign_reg     <= fp_sign;
         fp_exp_reg      <= fp_exp;
         fp_frac_ex_reg  <= fp_frac_ex;
-        mult_by_zero[1] <= mult_by_zero[0]
+        mult_by_zero[1] <= mult_by_zero[0];
         if(rst_i) begin
             valid_reg_1 <= 0;
         end else begin  
