@@ -437,8 +437,8 @@ module top #(
     logic        i_a_valid_w;
 
     preprocessing_fp16  #(
-        .IMAGE_WIDTH(IMAGE_WIDTH),
-        .IMAGE_HEIGHT(IMAGE_HEIGHT),
+        .IMAGE_WIDTH(ROI_WIDTH),
+        .IMAGE_HEIGHT(ROI_HEIGHT),
         .BORDER_ENABLE(0)
     ) preprocessor (
         .clk_i(core_clk),
