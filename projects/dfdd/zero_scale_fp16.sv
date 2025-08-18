@@ -28,7 +28,6 @@ module zero_scale_fp16 #(
     input                         valid_i,
 
     input [FP_WIDTH_REG - 1 : 0]  w_i [3], // weights
-    input [FP_WIDTH_REG - 1 : 0]  w_t_i,   // sum of weights  
     input [FP_WIDTH_REG - 1 : 0]  a_i,
     input [FP_WIDTH_REG - 1 : 0]  b_i,     
 

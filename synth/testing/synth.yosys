@@ -21,6 +21,7 @@ verific -sv ../../rtl/third_party/i2c_initializer.sv \
             ../../rtl/floating_point_adder.sv         \
             ../../rtl/floating_point_adder_z.sv       \
             ../../rtl/floating_point_divider.sv       \
+            ../../rtl/floating_point_divider_z.sv     \
             ../../rtl/floating_point_multiplier.sv    \
             ../../rtl/floating_point_multiplier_z.sv  \
             ../../rtl/floating_point_multiplier_exponent.sv \
@@ -38,6 +39,8 @@ verific -sv ../../rtl/third_party/i2c_initializer.sv \
             ../../projects/dfdd/dy_0_fp16.sv        \
             ../../projects/dfdd/pass_0_fp16.sv      \
             ../../projects/dfdd/pass_dx_dy_adder_fp16.sv \
+            ../../projects/dfdd/preprocessor_fp16.sv \
+            ../../projects/dfdd/v_w_divider_0.sv     \
             \
             ../../rtl/zero_latency_buffer.sv \
             ../../rtl/stream_buffer.sv \

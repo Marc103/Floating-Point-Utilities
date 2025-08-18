@@ -282,7 +282,7 @@ module preprocessing_fp16 #(
         .fp_b_i (i_rho_minus_gaussian_data_w),
         .valid_i(i_rho_plus_gaussian_valid_w),
 
-        .fp_o_i (i_a_plus_data_w),
+        .fp_o   (i_a_plus_data_w),
         .valid_o(i_a_plus_valid_w)
     );
 
@@ -294,7 +294,7 @@ module preprocessing_fp16 #(
         .rst_i(rst_i),
 
         .fp_a_i(i_rho_plus_gaussian_col_w),
-        .fp_o_i(i_a_plus_col_w)
+        .fp_o  (i_a_plus_col_w)
     );
 
     floating_point_adder_z #(
@@ -305,7 +305,7 @@ module preprocessing_fp16 #(
         .rst_i(rst_i),
 
         .fp_a_i(i_rho_plus_gaussian_row_w),
-        .fp_o_i(i_a_plus_row_w)
+        .fp_o  (i_a_plus_row_w)
     );
 
     //----------------------------------------
@@ -324,7 +324,7 @@ module preprocessing_fp16 #(
 
         .fp_a_i (i_a_plus_data_w),
         .valid_i(i_a_plus_valid_w),
-        .fp_o   (i_a_data_w)
+        .fp_o   (i_a_data_w),
         .valid_o(i_a_valid_w)
     );
 
@@ -336,7 +336,7 @@ module preprocessing_fp16 #(
         .rst_i(rst_i),
 
         .fp_a_i(i_a_plus_col_w),
-        .fp_o_i(i_a_col_w)
+        .fp_o  (i_a_col_w)
     );
 
     floating_point_multiplier_z #(
@@ -347,7 +347,7 @@ module preprocessing_fp16 #(
         .rst_i(rst_i),
 
         .fp_a_i(i_a_plus_row_w),
-        .fp_o_i(i_a_row_w)
+        .fp_o  (i_a_row_w)
     );
 
     ////////////////////////////////////////////////////////////////
@@ -368,7 +368,7 @@ module preprocessing_fp16 #(
         .rst_i(rst_i),
         .fp_a_i (i_rho_plus_gaussian_data_w),
         .fp_b_i (i_rho_minus_gaussian_data_negative_w),
-        .fp_o_i (i_t_minus_data_w),
+        .fp_o   (i_t_minus_data_w)
     );
 
     //----------------------------------------

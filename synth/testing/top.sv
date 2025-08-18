@@ -364,6 +364,7 @@ module top #(
     always@(posedge core_clk) rd_sof_sbi_delay <= rd_sof_sbi_w;
 
     logic [15:0] fp16_in_0;
+    logic [15:0] fp16_in_1;
     logic        valid_in_0;
     
     uint8_fp16_converter cam_0_uint8_fp16_converter (
@@ -375,6 +376,16 @@ module top #(
 
         .fp16_o(fp16_in_0),
         .valid_o(valid_in_0)
+    );
+
+    uint8_fp16_converter cam_1_uint8_fp16_converter (
+        .clk_i(core_clk),
+        .rst_i(sys_reset),
+
+        .uint8_i(rd_channels_sbi_w[1]),
+        .valid_i(rd_valid_sbi_w),
+
+        .fp16_o(fp16_in_1)
     );
 
     logic [15:0] col_in;
@@ -419,20 +430,52 @@ module top #(
     assign row_in_0 = rd_sof_sbi_delay && valid_in_0 ? 0 : row_in;
 
     // main processing elements ----------------------------
-    logic [15:0] fp16_out;
-    logic [15:0] fp_v;
-    logic [15:0] fp_w;
-    logic [15:0] fp_iad;
-    logic [15:0] fp_itd;
-    //assign fp16_out = fp_v + fp_w + fp_iad + fp_itd;
-    logic valid_out;
-    logic [15:0] col_out;
-    logic [15:0] row_out;
+    logic [15:0] i_a_data_w;
+    logic [15:0] i_t_data_w;
+    logic [15:0] i_a_col_w;
+    logic [15:0] i_a_row_w;
+    logic        i_a_valid_w;
+
+    preprocessing_fp16  #(
+        .IMAGE_WIDTH(IMAGE_WIDTH),
+        .IMAGE_HEIGHT(IMAGE_HEIGHT),
+        .BORDER_ENABLE(0)
+    ) preprocessor (
+        .clk_i(core_clk),
+        .rst_i(sys_reset),
+
+        .i_rho_plus_i (fp16_in_0),
+        .i_rho_minus_i(fp16_in_1),
+        .col_i        (col_in_0),
+        .row_i        (row_in_0),
+        .valid_i      (valid_in_0),
+
+        .i_a_o  (i_a_data_w),
+        .i_t_o  (i_t_data_w),
+        .col_o  (i_a_col_w),
+        .row_o  (i_a_row_w),
+        .valid_o(i_a_valid_w)
+    );
+    
+    logic [15:0] fp_v_data_w;
+    logic [15:0] fp_w_data_w;
+    logic [15:0] fp_v_col_w;
+    logic [15:0] fp_v_row_w;
+    logic        fp_v_valid_w;
+
+    logic [15:0] fp_i_a_downsample_data_w;
+    logic [15:0] fp_i_t_downsample_data_w;
+    logic [15:0] fp_i_a_downsample_col_w;
+    logic [15:0] fp_i_a_downsample_row_w;
+    logic        fp_i_a_downsample_valid_w;
 
     logic [15:0] w [3];
+    logic [15:0] w_t;
     logic [15:0] a;
     logic [15:0] b;
+
     assign w = '{16'hbc00,16'h3c00,16'h3c00};
+    assign w_t = 16'h4200;
     assign a = 16'h4000;
     assign b = 16'h3c00;
 
@@ -445,23 +488,50 @@ module top #(
         .clk_i(core_clk),
         .rst_i(sys_reset),
 
-        .i_a_i(fp16_in_0),
-        .i_t_i(fp16_in_0),
-        .col_i(col_in_0),
-        .row_i(row_in_0),
-        .valid_i(valid_in_0),
+        .i_a_i  (i_a_data_w),
+        .i_t_i  (i_t_data_w),
+        .col_i  (i_a_col_w),
+        .row_i  (i_a_row_w),
+        .valid_i(i_a_valid_w),
 
         .w_i(w),
-        .w_t_i(),
+        .a_i(a),
+        .b_i(b),
 
-        //.i_a_downsample_o(fp16_out),
-        //.i_t_downsample_o(fp_itd),
-        //.col_downsample_o(col_out),
-        //.row_downsample_o(row_out),
-        //.valid_downsample_o(valid_out),
+        .i_a_downsample_o  (fp_i_a_downsample_data_w),
+        .i_t_downsample_o  (fp_i_t_downsample_data_w),
+        .col_downsample_o  (fp_i_a_downsample_col_w),
+        .row_downsample_o  (fp_i_a_downsample_row_w),
+        .valid_downsample_o(fp_i_a_downsample_valid_w),
 
-        //.v_o(fp_v)
-        .w_o(fp16_out),
+        .v_o    (fp_v_data_w),
+        .w_o    (fp_w_data_w),
+        .col_o  (fp_v_col_w),
+        .row_o  (fp_v_row_w),
+        .valid_o(fp_v_valid_w)
+    );
+
+    logic [15:0] fp16_out;
+    logic [15:0] col_out;
+    logic [15:0] row_out;
+    logic        valid_out;
+
+    v_w_divider_0 #(
+        .EXP_WIDTH(5),
+        .FRAC_WIDTH(10)
+    ) v_w_divider (
+        .clk_i(core_clk),
+        .rst_i(sys_reset),
+        
+        .v_i    (fp_v_data_w),
+        .w_i    (fp_w_data_w),
+        .w_t_i  (w_t),
+        .col_i  (fp_v_col_w),
+        .row_i  (fp_v_row_w),
+        .valid_i(fp_v_valid_w),
+
+        .z_o(fp16_out),
+        .c_o(),
         .col_o(col_out),
         .row_o(row_out),
         .valid_o(valid_out)
