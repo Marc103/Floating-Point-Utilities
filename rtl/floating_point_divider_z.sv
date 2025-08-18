@@ -38,8 +38,8 @@ module floating_point_divider_z #(
 
     ////////////////////////////////////////////////////////////////
     // Pipelining values
-    logic fp_reg_pipe    [FRAC_EX_WIDTH];
-    logic valid_reg_pipe [FRAC_EX_WIDTH];
+    logic [FP_WIDTH_REG - 1 : 0] fp_reg_pipe    [FRAC_EX_WIDTH];
+    logic                        valid_reg_pipe [FRAC_EX_WIDTH];
 
     always_ff@(posedge clk_i) begin
         fp_reg_pipe  [0] <= fp_a_reg;

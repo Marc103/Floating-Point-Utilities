@@ -543,7 +543,7 @@ module top #(
    
 
     fp16_u8_converter #(
-        .LEAD_EXPONENT_UNBIASED(5)
+        .LEAD_EXPONENT_UNBIASED(0)
     ) cam_0_fp16_u8_converter (
         .clk_i(core_clk),
         .rst_i(sys_reset),
