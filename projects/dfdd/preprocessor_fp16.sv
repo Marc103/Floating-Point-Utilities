@@ -54,6 +54,20 @@ module preprocessing_fp16 #(
         bv_kernel_w[4][0] = 16'h2c00;
     end
 
+    logic [FP_WIDTH_REG - 1 : 0] boxh_kernel_w [1][3];
+    always_comb begin
+        boxh_kernel_w[0][0] = 16'h3555;
+        boxh_kernel_w[0][1] = 16'h3555;
+        boxh_kernel_w[0][2] = 16'h3555;
+    end
+
+    logic [FP_WIDTH_REG - 1 : 0] boxv_kernel_w [3][1];
+    always_comb begin
+        boxv_kernel_w[0][0] = 16'h3555;
+        boxv_kernel_w[1][0] = 16'h3555;
+        boxv_kernel_w[2][0] = 16'h3555;
+    end
+
     ////////////////////////////////////////////////////////////////
     // I rho plus 
     //----------------------
@@ -62,6 +76,10 @@ module preprocessing_fp16 #(
     // gaussian horizontal
     // window fetcher - 5x1
     // gaussian vertical
+    // window fetcher - 1x3
+    // box filter horizontal
+    // window fetcher - 3x1
+    // box filter vertical
     
     logic [FP_WIDTH_REG - 1 : 0] i_rho_plus_wfh_window_w [1][5];
     logic [15:0]                 i_rho_plus_wfh_col_w;
@@ -159,6 +177,102 @@ module preprocessing_fp16 #(
         .valid_o(i_rho_plus_gaussian_valid_w)
     );
 
+    logic [FP_WIDTH_REG - 1 : 0] i_rho_plus_gaussian_wfh_window_w [1][3];
+    logic [15:0]                 i_rho_plus_gaussian_wfh_col_w;
+    logic [15:0]                 i_rho_plus_gaussian_wfh_row_w;
+    logic                        i_rho_plus_gaussian_wfh_valid_w;
+
+    window_fetcher #(
+        .DATA_WIDTH   (FP_WIDTH_REG),
+        .IMAGE_WIDTH  (IMAGE_WIDTH),
+        .IMAGE_HEIGHT (IMAGE_HEIGHT),
+        .WINDOW_WIDTH (3),
+        .WINDOW_HEIGHT(1),
+        .BORDER_ENABLE(BORDER_ENABLE)
+    ) i_rho_plus_gaussian_window_fetcher_h (
+        .clk_i(clk_i),
+        .rst_i(rst_i),
+
+        .data_i (i_rho_plus_gaussian_data_w),
+        .col_i  (i_rho_plus_gaussian_col_w),
+        .row_i  (i_rho_plus_gaussian_row_w),
+        .valid_i(i_rho_plus_gaussian_valid_w),
+
+        .window_o(i_rho_plus_gaussian_wfh_window_w),
+        .col_o   (i_rho_plus_gaussian_wfh_col_w),
+        .row_o   (i_rho_plus_gaussian_wfh_row_w),
+        .valid_o (i_rho_plus_gaussian_wfh_valid_w)
+    );
+
+    logic [FP_WIDTH_REG - 1 : 0] i_rho_plus_gaussian_boxh_data_w;
+    logic [15:0]                 i_rho_plus_gaussian_boxh_col_w;
+    logic [15:0]                 i_rho_plus_gaussian_boxh_row_w;
+    logic                        i_rho_plus_gaussian_boxh_valid_w;
+    
+    box_h_0_fp16 i_rho_plus_gaussian_box_h (
+        .clk_i(clk_i),
+        .rst_i(rst_i),
+
+        .window_i(i_rho_plus_gaussian_wfh_window_w),
+        .kernel_i(boxh_kernel_w),
+        .col_i   (i_rho_plus_gaussian_wfh_col_w),
+        .row_i   (i_rho_plus_gaussian_wfh_row_w),
+        .valid_i (i_rho_plus_gaussian_wfh_valid_w),
+
+        .data_o (i_rho_plus_gaussian_boxh_data_w),
+        .col_o  (i_rho_plus_gaussian_boxh_col_w),
+        .row_o  (i_rho_plus_gaussian_boxh_row_w),
+        .valid_o(i_rho_plus_gaussian_boxh_valid_w)
+    );
+
+    logic [FP_WIDTH_REG - 1 : 0] i_rho_plus_gaussian_wfv_window_w [3][1];
+    logic [15:0]                 i_rho_plus_gaussian_wfv_col_w;
+    logic [15:0]                 i_rho_plus_gaussian_wfv_row_w;
+    logic                        i_rho_plus_gaussian_wfv_valid_w;
+
+    window_fetcher #(
+        .DATA_WIDTH   (FP_WIDTH_REG),
+        .IMAGE_WIDTH  (IMAGE_WIDTH),
+        .IMAGE_HEIGHT (IMAGE_HEIGHT),
+        .WINDOW_WIDTH (1),
+        .WINDOW_HEIGHT(3),
+        .BORDER_ENABLE(BORDER_ENABLE)
+    ) i_rho_plus_gaussian_window_fetcher_v (
+        .clk_i(clk_i),
+        .rst_i(rst_i),
+
+        .data_i (i_rho_plus_gaussian_boxh_data_w),
+        .col_i  (i_rho_plus_gaussian_boxh_col_w),
+        .row_i  (i_rho_plus_gaussian_boxh_row_w),
+        .valid_i(i_rho_plus_gaussian_boxh_valid_w),
+
+        .window_o(i_rho_plus_gaussian_wfv_window_w),
+        .col_o   (i_rho_plus_gaussian_wfv_col_w),
+        .row_o   (i_rho_plus_gaussian_wfv_row_w),
+        .valid_o (i_rho_plus_gaussian_wfv_valid_w)
+    );
+
+    logic [FP_WIDTH_REG - 1 : 0] i_rho_plus_gaussian_box_data_w;
+    logic [15:0]                 i_rho_plus_gaussian_box_col_w;
+    logic [15:0]                 i_rho_plus_gaussian_box_row_w;
+    logic                        i_rho_plus_gaussian_box_valid_w;
+
+    box_v_0_fp16 i_rho_plus_gaussian_box_v (
+        .clk_i(clk_i),
+        .rst_i(rst_i),
+
+        .window_i(i_rho_plus_gaussian_wfv_window_w),
+        .kernel_i(boxv_kernel_w),
+        .col_i   (i_rho_plus_gaussian_wfv_col_w),
+        .row_i   (i_rho_plus_gaussian_wfv_row_w),
+        .valid_i (i_rho_plus_gaussian_wfv_valid_w),
+
+        .data_o (i_rho_plus_gaussian_box_data_w),
+        .col_o  (i_rho_plus_gaussian_box_col_w),
+        .row_o  (i_rho_plus_gaussian_box_row_w),
+        .valid_o(i_rho_plus_gaussian_box_valid_w)
+    );
+
     ////////////////////////////////////////////////////////////////
     // I rho minus
     //----------------------
@@ -167,6 +281,10 @@ module preprocessing_fp16 #(
     // gaussian horizontal
     // window fetcher - 5x1
     // gaussian vertical
+    // window fetcher - 1x3
+    // box filter horizontal
+    // window fetcher - 3x1
+    // box filter vertical
 
     logic [FP_WIDTH_REG - 1 : 0] i_rho_minus_wfh_window_w [1][5];
     logic [15:0]                 i_rho_minus_wfh_col_w;
@@ -264,6 +382,102 @@ module preprocessing_fp16 #(
         .valid_o(i_rho_minus_gaussian_valid_w)
     );
 
+    logic [FP_WIDTH_REG - 1 : 0] i_rho_minus_gaussian_wfh_window_w [1][3];
+    logic [15:0]                 i_rho_minus_gaussian_wfh_col_w;
+    logic [15:0]                 i_rho_minus_gaussian_wfh_row_w;
+    logic                        i_rho_minus_gaussian_wfh_valid_w;
+
+    window_fetcher #(
+        .DATA_WIDTH   (FP_WIDTH_REG),
+        .IMAGE_WIDTH  (IMAGE_WIDTH),
+        .IMAGE_HEIGHT (IMAGE_HEIGHT),
+        .WINDOW_WIDTH (3),
+        .WINDOW_HEIGHT(1),
+        .BORDER_ENABLE(BORDER_ENABLE)
+    ) i_rho_minus_gaussian_window_fetcher_h (
+        .clk_i(clk_i),
+        .rst_i(rst_i),
+
+        .data_i (i_rho_minus_gaussian_data_w),
+        .col_i  (i_rho_minus_gaussian_col_w),
+        .row_i  (i_rho_minus_gaussian_row_w),
+        .valid_i(i_rho_minus_gaussian_valid_w),
+
+        .window_o(i_rho_minus_gaussian_wfh_window_w),
+        .col_o   (i_rho_minus_gaussian_wfh_col_w),
+        .row_o   (i_rho_minus_gaussian_wfh_row_w),
+        .valid_o (i_rho_minus_gaussian_wfh_valid_w)
+    );
+
+    logic [FP_WIDTH_REG - 1 : 0] i_rho_minus_gaussian_boxh_data_w;
+    logic [15:0]                 i_rho_minus_gaussian_boxh_col_w;
+    logic [15:0]                 i_rho_minus_gaussian_boxh_row_w;
+    logic                        i_rho_minus_gaussian_boxh_valid_w;
+    
+    box_h_0_fp16 i_rho_minus_gaussian_box_h (
+        .clk_i(clk_i),
+        .rst_i(rst_i),
+
+        .window_i(i_rho_minus_gaussian_wfh_window_w),
+        .kernel_i(boxh_kernel_w),
+        .col_i   (i_rho_minus_gaussian_wfh_col_w),
+        .row_i   (i_rho_minus_gaussian_wfh_row_w),
+        .valid_i (i_rho_minus_gaussian_wfh_valid_w),
+
+        .data_o (i_rho_minus_gaussian_boxh_data_w),
+        .col_o  (i_rho_minus_gaussian_boxh_col_w),
+        .row_o  (i_rho_minus_gaussian_boxh_row_w),
+        .valid_o(i_rho_minus_gaussian_boxh_valid_w)
+    );
+
+    logic [FP_WIDTH_REG - 1 : 0] i_rho_minus_gaussian_wfv_window_w[3][1];
+    logic [15:0]                 i_rho_minus_gaussian_wfv_col_w;
+    logic [15:0]                 i_rho_minus_gaussian_wfv_row_w;
+    logic                        i_rho_minus_gaussian_wfv_valid_w;
+
+    window_fetcher #(
+        .DATA_WIDTH   (FP_WIDTH_REG),
+        .IMAGE_WIDTH  (IMAGE_WIDTH),
+        .IMAGE_HEIGHT (IMAGE_HEIGHT),
+        .WINDOW_WIDTH (1),
+        .WINDOW_HEIGHT(3),
+        .BORDER_ENABLE(BORDER_ENABLE)
+    ) i_rho_minus_gaussian_window_fetcher_v (
+        .clk_i(clk_i),
+        .rst_i(rst_i),
+
+        .data_i (i_rho_minus_gaussian_boxh_data_w),
+        .col_i  (i_rho_minus_gaussian_boxh_col_w),
+        .row_i  (i_rho_minus_gaussian_boxh_row_w),
+        .valid_i(i_rho_minus_gaussian_boxh_valid_w),
+
+        .window_o(i_rho_minus_gaussian_wfv_window_w),
+        .col_o   (i_rho_minus_gaussian_wfv_col_w),
+        .row_o   (i_rho_minus_gaussian_wfv_row_w),
+        .valid_o (i_rho_minus_gaussian_wfv_valid_w)
+    );
+
+    logic [FP_WIDTH_REG - 1 : 0] i_rho_minus_gaussian_box_data_w;
+    logic [15:0]                 i_rho_minus_gaussian_box_col_w;
+    logic [15:0]                 i_rho_minus_gaussian_box_row_w;
+    logic                        i_rho_minus_gaussian_box_valid_w;
+
+    box_v_0_fp16 i_rho_minus_gaussian_box_v (
+        .clk_i(clk_i),
+        .rst_i(rst_i),
+
+        .window_i(i_rho_minus_gaussian_wfv_window_w),
+        .kernel_i(boxv_kernel_w),
+        .col_i   (i_rho_minus_gaussian_wfv_col_w),
+        .row_i   (i_rho_minus_gaussian_wfv_row_w),
+        .valid_i (i_rho_minus_gaussian_wfv_valid_w),
+
+        .data_o (i_rho_minus_gaussian_box_data_w),
+        .col_o  (i_rho_minus_gaussian_box_col_w),
+        .row_o  (i_rho_minus_gaussian_box_row_w),
+        .valid_o(i_rho_minus_gaussian_box_valid_w)
+    );
+
     ////////////////////////////////////////////////////////////////
     // I_A calculation (and row col delay)
     logic [FP_WIDTH_REG - 1 : 0] i_a_plus_data_w;
@@ -278,9 +492,9 @@ module preprocessing_fp16 #(
         .clk_i(clk_i),
         .rst_i(rst_i),
 
-        .fp_a_i (i_rho_plus_gaussian_data_w),
-        .fp_b_i (i_rho_minus_gaussian_data_w),
-        .valid_i(i_rho_plus_gaussian_valid_w),
+        .fp_a_i (i_rho_plus_gaussian_box_data_w),
+        .fp_b_i (i_rho_minus_gaussian_box_data_w),
+        .valid_i(i_rho_plus_gaussian_box_valid_w),
 
         .fp_o   (i_a_plus_data_w),
         .valid_o(i_a_plus_valid_w)
@@ -354,10 +568,10 @@ module preprocessing_fp16 #(
     // I_T calculation
     logic [FP_WIDTH_REG - 1 : 0] i_t_minus_data_w;
 
-    logic [FP_WIDTH_REG - 1 : 0] i_rho_minus_gaussian_data_negative_w;
+    logic [FP_WIDTH_REG - 1 : 0] i_rho_minus_gaussian_box_data_negative_w;
     always_comb begin
-        i_rho_minus_gaussian_data_negative_w[FP_WIDTH_REG - 1] = !i_rho_minus_gaussian_data_w[FP_WIDTH_REG - 1];
-        i_rho_minus_gaussian_data_negative_w[FP_WIDTH_REG - 2 : 0] = i_rho_minus_gaussian_data_w[FP_WIDTH_REG - 2 : 0];
+        i_rho_minus_gaussian_box_data_negative_w[FP_WIDTH_REG - 1] = !i_rho_minus_gaussian_box_data_w[FP_WIDTH_REG - 1];
+        i_rho_minus_gaussian_box_data_negative_w[FP_WIDTH_REG - 2 : 0] = i_rho_minus_gaussian_box_data_w[FP_WIDTH_REG - 2 : 0];
     end
 
     floating_point_adder #(
@@ -366,8 +580,8 @@ module preprocessing_fp16 #(
     ) i_t_minus_adder (
         .clk_i(clk_i),
         .rst_i(rst_i),
-        .fp_a_i (i_rho_plus_gaussian_data_w),
-        .fp_b_i (i_rho_minus_gaussian_data_negative_w),
+        .fp_a_i (i_rho_plus_gaussian_box_data_w),
+        .fp_b_i (i_rho_minus_gaussian_box_data_negative_w),
         .fp_o   (i_t_minus_data_w)
     );
 
