@@ -507,7 +507,7 @@ module preprocessing_fp16 #(
         .clk_i(clk_i),
         .rst_i(rst_i),
 
-        .fp_a_i(i_rho_plus_gaussian_col_w),
+        .fp_a_i(i_rho_plus_gaussian_box_col_w),
         .fp_o  (i_a_plus_col_w)
     );
 
@@ -518,7 +518,7 @@ module preprocessing_fp16 #(
         .clk_i(clk_i),
         .rst_i(rst_i),
 
-        .fp_a_i(i_rho_plus_gaussian_row_w),
+        .fp_a_i(i_rho_plus_gaussian_box_row_w),
         .fp_o  (i_a_plus_row_w)
     );
 
