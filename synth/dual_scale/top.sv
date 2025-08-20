@@ -37,7 +37,7 @@ module top #(
     parameter BUFFER_DEPTH_I = 32,
 
     // Output Stream Buffer
-    parameter CHANNELS_O       = 1,
+    parameter CHANNELS_O       = 2,
     parameter DATA_WIDTH_O     = 8,
     parameter BUFFER_DEPTH_O   = 2**16,
 
@@ -518,8 +518,8 @@ module top #(
     logic        fp_v_1_valid_w;
 
     first_scale_fp16 #(
-        .IMAGE_WIDTH (IMAGE_WIDTH),
-        .IMAGE_HEIGHT(IMAGE_HEIGHT),
+        .IMAGE_WIDTH (ROI_WIDTH),
+        .IMAGE_HEIGHT(ROI_HEIGHT),
         .BORDER_ENABLE(0),
         .DX_DY_ENABLE(0)
     ) first_scale (
@@ -559,8 +559,8 @@ module top #(
     logic        fp_v_final_valid_w;
 
     dual_scale_adder_fp16 #(
-        .IMAGE_WIDTH(IMAGE_WIDTH),
-        .IMAGE_HEIGHT(IMAGE_HEIGHT),
+        .IMAGE_WIDTH(ROI_WIDTH),
+        .IMAGE_HEIGHT(ROI_HEIGHT),
         .BUFFER_DEPTH(ROI_WIDTH * 16)
     ) aligner_and_adder (
         .clk_i(core_clk),
@@ -612,8 +612,8 @@ module top #(
    
 
     fp16_u8_converter #(
-        .LEAD_EXPONENT_UNBIASED(0)
-    ) cam_0_fp16_u8_converter (
+        .LEAD_EXPONENT_UNBIASED(-1)
+    ) z_fp16_u8_converter (
         .clk_i(core_clk),
         .rst_i(sys_reset),
 
@@ -623,9 +623,22 @@ module top #(
         .u8_o(wr_channels_sbo_w[0]),
         .valid_o(wr_valids_sbo_w[0])
     );
+
+    fp16_u8_converter #(
+        .LEAD_EXPONENT_UNBIASED(3)
+    ) c_fp16_u8_converter (
+        .clk_i(core_clk),
+        .rst_i(sys_reset),
+
+        .fp16_i(fp16_c_out),
+        .valid_i(valid_out),
+
+        .u8_o(wr_channels_sbo_w[1]),
+        .valid_o(wr_valids_sbo_w[1])
+    );
     
-    assign wr_clks_sbo_w[0] = core_clk;
-    assign wr_rsts_sbo_w[0] = sys_reset;
+    assign wr_clks_sbo_w = '{core_clk, core_clk};
+    assign wr_rsts_sbo_w = '{sys_reset, sys_reset};
     assign wr_sof_sbo_w     = wr_sof_sbo_delay;
 
     ////////////////////////////////////////////////////////////////

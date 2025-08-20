@@ -285,6 +285,7 @@ module first_scale_fp16 #(
         .IMAGE_HEIGHT (IMAGE_HEIGHT),
         .WINDOW_WIDTH (3),
         .WINDOW_HEIGHT(1),
+        .WINDOW_WIDTH_CENTER_OFFSET(-1),
         .BORDER_ENABLE(BORDER_ENABLE)
     ) i_a_gaussian_window_fetcher_h (
         .clk_i(clk_i),
@@ -333,6 +334,7 @@ module first_scale_fp16 #(
         .IMAGE_HEIGHT (IMAGE_HEIGHT),
         .WINDOW_WIDTH (1),
         .WINDOW_HEIGHT(3),
+        .WINDOW_HEIGHT_CENTER_OFFSET(-1),
         .BORDER_ENABLE(BORDER_ENABLE)
     ) i_a_gaussian_window_fetcher_v (
         .clk_i(clk_i),
@@ -621,6 +623,7 @@ module first_scale_fp16 #(
         .IMAGE_HEIGHT (IMAGE_HEIGHT),
         .WINDOW_WIDTH (3),
         .WINDOW_HEIGHT(1),
+        .WINDOW_WIDTH_CENTER_OFFSET(-1),
         .BORDER_ENABLE(BORDER_ENABLE)
     ) i_a_gaussian_window_fetcher_h_b (
         .clk_i(clk_i),
@@ -673,6 +676,7 @@ module first_scale_fp16 #(
         .IMAGE_HEIGHT (IMAGE_HEIGHT),
         .WINDOW_WIDTH (1),
         .WINDOW_HEIGHT(3),
+        .WINDOW_HEIGHT_CENTER_OFFSET(-1),
         .BORDER_ENABLE(BORDER_ENABLE)
     ) i_a_gaussian_window_fetcher_v_b (
         .clk_i(clk_i),
@@ -964,6 +968,7 @@ module first_scale_fp16 #(
         .IMAGE_HEIGHT (IMAGE_HEIGHT),
         .WINDOW_WIDTH (3),
         .WINDOW_HEIGHT(1),
+        .WINDOW_WIDTH_CENTER_OFFSET(-1),
         .BORDER_ENABLE(BORDER_ENABLE)
     ) i_t_gaussian_window_fetcher_h (
         .clk_i(clk_i),
@@ -1012,6 +1017,7 @@ module first_scale_fp16 #(
         .IMAGE_HEIGHT (IMAGE_HEIGHT),
         .WINDOW_WIDTH (1),
         .WINDOW_HEIGHT(3),
+        .WINDOW_HEIGHT_CENTER_OFFSET(-1),
         .BORDER_ENABLE(BORDER_ENABLE)
     ) i_t_gaussian_window_fetcher_v (
         .clk_i(clk_i),
@@ -1180,6 +1186,7 @@ module first_scale_fp16 #(
         .IMAGE_HEIGHT (IMAGE_HEIGHT),
         .WINDOW_WIDTH (3),
         .WINDOW_HEIGHT(1),
+        .WINDOW_WIDTH_CENTER_OFFSET(-1),
         .BORDER_ENABLE(BORDER_ENABLE)
     ) i_t_gaussian_window_fetcher_h_b (
         .clk_i(clk_i),
@@ -1232,6 +1239,7 @@ module first_scale_fp16 #(
         .IMAGE_HEIGHT (IMAGE_HEIGHT),
         .WINDOW_WIDTH (1),
         .WINDOW_HEIGHT(3),
+        .WINDOW_HEIGHT_CENTER_OFFSET(-1),
         .BORDER_ENABLE(BORDER_ENABLE)
     ) i_t_gaussian_window_fetcher_v_b (
         .clk_i(clk_i),

@@ -9,7 +9,7 @@ module preprocessing_fp16 #(
     parameter IMAGE_WIDTH,
     parameter IMAGE_HEIGHT,
 
-    parameter BORDER_ENABLE = 1,
+    parameter BORDER_ENABLE = 0,
 
     ////////////////////////////////////////////////////////////////
     // Local parameters
