@@ -62,6 +62,192 @@
  * [ < ] - EXP_WIDTH
  * [ - ] - EXP_WIDTH
  */
+
+module floating_point_adder #(
+    parameter EXP_WIDTH  = 0,
+    parameter FRAC_WIDTH = 0,
+    parameter SAVE_FF = 1,
+
+    ////////////////////////////////////////////////////////////////
+    // Local parameters
+    parameter FP_WIDTH_REG = 1 + EXP_WIDTH + FRAC_WIDTH,
+    parameter FP_WIDTH_TOT = 1 + EXP_WIDTH + 1 + 1 + FRAC_WIDTH + 1
+) (
+    input clk_i,
+    input rst_i,
+
+    input  [FP_WIDTH_REG - 1 : 0] fp_a_i,
+    input  [FP_WIDTH_REG - 1 : 0] fp_b_i,
+    input                         valid_i,
+
+    output [FP_WIDTH_REG - 1 : 0] fp_o,
+    output                        valid_o
+);
+
+    ////////////////////////////////////////////////////////////////
+    // 1 - sgm
+    logic [FP_WIDTH_TOT - 1 : 0] sgm_ngm_fp_a_w;
+    logic [FP_WIDTH_TOT - 1 : 0] sgm_ngm_fp_b_w;
+    logic                        sgm_ngm_valid_w;
+    logic [EXP_WIDTH - 1 : 0]    sgm_ngm_exp_diff_w;
+
+    sgm #(
+        .EXP_WIDTH(EXP_WIDTH),
+        .FRAC_WIDTH(FRAC_WIDTH)
+    ) sgm_inst (
+        .clk_i(clk_i),
+        .rst_i(rst_i),
+
+        .fp_a_i(fp_a_i),
+        .fp_b_i(fp_b_i),
+        .valid_i(valid_i),
+
+        .fp_a_o(sgm_ngm_fp_a_w),
+        .fp_b_o(sgm_ngm_fp_b_w),
+        .exp_diff_o(sgm_ngm_exp_diff_w),
+        .valid_o(sgm_ngm_valid_w)
+    );
+
+    ////////////////////////////////////////////////////////////////
+    // 2 -  ngm
+    logic [FP_WIDTH_TOT - 1 : 0] ngm_cvt_fp_a_w;
+    logic [FP_WIDTH_TOT - 1 : 0] ngm_cvt_fp_b_w;
+    logic                        ngm_cvt_valid_w;
+
+    ngm #(
+        .EXP_WIDTH(EXP_WIDTH),
+        .FRAC_WIDTH(FRAC_WIDTH),
+        .SAVE_FF(SAVE_FF)
+    ) ngm_inst (
+        .clk_i(clk_i),
+        .rst_i(rst_i),
+
+        .fp_a_i(sgm_ngm_fp_a_w),
+        .fp_b_i(sgm_ngm_fp_b_w),
+        .exp_diff_i(sgm_ngm_exp_diff_w),
+        .valid_i(sgm_ngm_valid_w),
+
+        .fp_a_o(ngm_cvt_fp_a_w),
+        .fp_b_o(ngm_cvt_fp_b_w),
+        .valid_o(ngm_cvt_valid_w)
+    );
+
+    ////////////////////////////////////////////////////////////////
+    // 3 - cvt 
+    logic [FP_WIDTH_TOT - 1 : 0] cvt_avt_fp_a_w;
+    logic [FP_WIDTH_TOT - 1 : 0] cvt_avt_fp_b_w;
+    logic                        cvt_avt_valid_w;
+
+    cvt #(
+        .EXP_WIDTH(EXP_WIDTH),
+        .FRAC_WIDTH(FRAC_WIDTH),
+        .SAVE_FF(SAVE_FF)
+    ) cvt_inst (
+        .clk_i(clk_i),
+        .rst_i(rst_i),
+
+        .fp_a_i(ngm_cvt_fp_a_w),
+        .fp_b_i(ngm_cvt_fp_b_w),
+        .valid_i(ngm_cvt_valid_w),
+
+        .fp_a_o(cvt_avt_fp_a_w),
+        .fp_b_o(cvt_avt_fp_b_w),
+        .valid_o(cvt_avt_valid_w)
+    );
+
+    ////////////////////////////////////////////////////////////////
+    // 4 - avt
+    logic [FP_WIDTH_TOT - 1 : 0] avt_cvu_fp_w;
+    logic                        avt_cvu_fp_a_sign_w;
+    logic                        avt_cvu_fp_b_sign_w;
+    logic                        avt_cvu_valid_w;
+
+    avt #(
+        .EXP_WIDTH(EXP_WIDTH),
+        .FRAC_WIDTH(FRAC_WIDTH),
+        .SAVE_FF(SAVE_FF)
+    ) avt_inst (
+        .clk_i(clk_i),
+        .rst_i(rst_i),
+
+        .fp_a_i(cvt_avt_fp_a_w),
+        .fp_b_i(cvt_avt_fp_b_w),
+        .valid_i(cvt_avt_valid_w),
+
+        .fp_o(avt_cvu_fp_w),
+        .fp_a_sign_o(avt_cvu_fp_a_sign_w),
+        .fp_b_sign_o(avt_cvu_fp_b_sign_w),
+        .valid_o(avt_cvu_valid_w)
+    );
+
+    ////////////////////////////////////////////////////////////////
+    // 5 - cvu 
+    logic [FP_WIDTH_TOT - 1 : 0] cvu_nr_fp_w;
+    logic                        cvu_nr_valid_w;
+
+    cvu #(
+        .EXP_WIDTH(EXP_WIDTH),
+        .FRAC_WIDTH(FRAC_WIDTH),
+        .SAVE_FF(SAVE_FF)
+    ) cvu_inst (
+        .clk_i(clk_i),
+        .rst_i(rst_i),
+
+        .fp_i(avt_cvu_fp_w),
+        .fp_a_sign_i(avt_cvu_fp_a_sign_w),
+        .fp_b_sign_i(avt_cvu_fp_b_sign_w),
+        .valid_i(avt_cvu_valid_w),
+
+        .fp_o(cvu_nr_fp_w),
+        .valid_o(cvu_nr_valid_w)
+    );
+
+    ////////////////////////////////////////////////////////////////
+    // 6 - nr 
+    logic [FP_WIDTH_TOT - 1 : 0] nr_rr_fp_w;
+    logic                        nr_rr_valid_w;
+
+    nr #(
+        .EXP_WIDTH(EXP_WIDTH),
+        .FRAC_WIDTH(FRAC_WIDTH),
+        .SAVE_FF(0)
+    ) nr_inst (
+        .clk_i(clk_i),
+        .rst_i(rst_i),
+
+        .fp_i(cvu_nr_fp_w),
+        .valid_i(cvu_nr_valid_w),
+
+        .fp_o(nr_rr_fp_w),
+        .valid_o(nr_rr_valid_w)
+    );
+
+    ////////////////////////////////////////////////////////////////
+    // 7 - rr
+    logic [FP_WIDTH_REG - 1 : 0] rr_o_fp_w;
+    logic                        rr_o_valid_w;
+
+    rr #(
+        .EXP_WIDTH(EXP_WIDTH),
+        .FRAC_WIDTH(FRAC_WIDTH),
+        .SAVE_FF(SAVE_FF)
+    ) rr_inst (
+        .clk_i(clk_i),
+        .rst_i(rst_i),
+        
+        .fp_i(nr_rr_fp_w),
+        .valid_i(nr_rr_valid_w),
+
+        .fp_o(rr_o_fp_w),
+        .valid_o(rr_o_valid_w)
+    );
+
+    ////////////////////////////////////////////////////////////////
+    // Output
+    assign fp_o    = rr_o_fp_w;
+    assign valid_o = rr_o_valid_w;
+endmodule
+
 module sgm #(
     parameter EXP_WIDTH = 0,
     parameter FRAC_WIDTH = 0,
@@ -210,7 +396,7 @@ endmodule
 module ngm #(
     parameter EXP_WIDTH = 0,
     parameter FRAC_WIDTH = 0,
-
+    parameter SAVE_FF = 0,
     ////////////////////////////////////////////////////////////////
     // Local parameters
     parameter FRAC_EX_WIDTH = 1 + 1 + FRAC_WIDTH + 1,
@@ -243,13 +429,15 @@ module ngm #(
     logic                                 valid_reg;
 
     always_ff @(posedge clk_i) begin
-        fp_a_reg     <= fp_a_i;
-        fp_b_reg     <= fp_b_i;
-        exp_diff_reg <= exp_diff_i[EXP_WIDTH - 1: 0];
-        if(rst_i) begin
-            valid_reg <= 0;
-        end else begin
-            valid_reg <= valid_i;
+        if(SAVE_FF == 0) begin
+            fp_a_reg     <= fp_a_i;
+            fp_b_reg     <= fp_b_i;
+            exp_diff_reg <= exp_diff_i[EXP_WIDTH - 1: 0];
+            if(rst_i) begin
+                valid_reg <= 0;
+            end else begin
+                valid_reg <= valid_i;
+            end
         end
     end
 
@@ -263,29 +451,50 @@ module ngm #(
     logic [EXP_WIDTH - 1 : 0]     fp_b_exp;
     logic [FRAC_EX_WIDTH - 1 : 0] fp_b_frac_ex;
 
+    logic unsigned [EXP_WIDTH - 1 : 0] exp_diff_us_i;
+    assign exp_diff_us_i = exp_diff_i [EXP_WIDTH - 1 : 0];
+
     always_comb begin
-        fp_a_sign    = fp_a_reg[SIGN_IDX];
-        fp_a_exp     = fp_a_reg[EXP_IDX_MSB : EXP_IDX_LSB];
-        fp_a_frac_ex = fp_a_reg[FRAC_EX_IDX_MSB : FRAC_EX_IDX_LSB];
+        if(SAVE_FF == 0) begin
+            fp_a_sign    = fp_a_reg[SIGN_IDX];
+            fp_a_exp     = fp_a_reg[EXP_IDX_MSB : EXP_IDX_LSB];
+            fp_a_frac_ex = fp_a_reg[FRAC_EX_IDX_MSB : FRAC_EX_IDX_LSB];
 
-        fp_b_sign    = fp_b_reg[SIGN_IDX];
-        fp_b_exp     = fp_b_reg[EXP_IDX_MSB : EXP_IDX_LSB];
-        fp_b_frac_ex = fp_b_reg[FRAC_EX_IDX_MSB : FRAC_EX_IDX_LSB];
+            fp_b_sign    = fp_b_reg[SIGN_IDX];
+            fp_b_exp     = fp_b_reg[EXP_IDX_MSB : EXP_IDX_LSB];
+            fp_b_frac_ex = fp_b_reg[FRAC_EX_IDX_MSB : FRAC_EX_IDX_LSB];
 
-        fp_b_exp = fp_a_exp;
+            fp_b_exp = fp_a_exp;
 
-        if(exp_diff_reg <= (1 + FRAC_WIDTH)) begin
-            fp_b_frac_ex = fp_b_frac_ex >> exp_diff_reg;
+            if(exp_diff_reg <= (1 + FRAC_WIDTH)) begin
+                fp_b_frac_ex = fp_b_frac_ex >> exp_diff_reg;
+            end else begin
+                fp_b_frac_ex = 0;
+            end
         end else begin
-            fp_b_frac_ex = 0;
+            fp_a_sign    = fp_a_i[SIGN_IDX];
+            fp_a_exp     = fp_a_i[EXP_IDX_MSB : EXP_IDX_LSB];
+            fp_a_frac_ex = fp_a_i[FRAC_EX_IDX_MSB : FRAC_EX_IDX_LSB];
+
+            fp_b_sign    = fp_b_i[SIGN_IDX];
+            fp_b_exp     = fp_b_i[EXP_IDX_MSB : EXP_IDX_LSB];
+            fp_b_frac_ex = fp_b_i[FRAC_EX_IDX_MSB : FRAC_EX_IDX_LSB];
+
+            if(exp_diff_us_i <= (1 + FRAC_WIDTH)) begin
+                fp_b_frac_ex = fp_b_frac_ex >> exp_diff_us_i;
+            end else begin
+                fp_b_frac_ex = 0;
+            end
         end
+
+        
     end
     
     ////////////////////////////////////////////////////////////////
     // Output
     assign fp_a_o  = {fp_a_sign, fp_a_exp, fp_a_frac_ex};
     assign fp_b_o  = {fp_b_sign, fp_b_exp, fp_b_frac_ex};
-    assign valid_o = valid_reg;
+    assign valid_o = (SAVE_FF == 0) ? valid_reg : valid_i;
 
     
 endmodule
@@ -304,6 +513,7 @@ endmodule
 module rnv #(
     parameter EXP_WIDTH = 0,
     parameter FRAC_WIDTH = 0,
+    parameter SAVE_FF = 0,
 
     ////////////////////////////////////////////////////////////////
     // Local parameters
@@ -333,12 +543,14 @@ module rnv #(
     logic                        valid_reg;
 
     always_ff @(posedge clk_i) begin
-        fp_a_reg     <= fp_a_i;
-        fp_b_reg     <= fp_b_i;
-        if(rst_i) begin
-            valid_reg <= 0;
-        end else begin
-            valid_reg <= valid_i;
+        if(SAVE_FF == 0) begin
+            fp_a_reg     <= fp_a_i;
+            fp_b_reg     <= fp_b_i;
+            if(rst_i) begin
+                valid_reg <= 0;
+            end else begin
+                valid_reg <= valid_i;
+            end
         end
     end
 
@@ -350,11 +562,19 @@ module rnv #(
     logic [FRAC_EX_WIDTH - 1 : 0] fp_b_frac_ex;
 
     always_comb begin
-        fp_b_sign    = fp_b_reg[SIGN_IDX];
-        fp_b_exp     = fp_b_reg[EXP_IDX_MSB : EXP_IDX_LSB];
-        fp_b_frac_ex = fp_b_reg[FRAC_EX_IDX_MSB : FRAC_EX_IDX_LSB];
+        if(SAVE_FF == 0) begin
+            fp_b_sign    = fp_b_reg[SIGN_IDX];
+            fp_b_exp     = fp_b_reg[EXP_IDX_MSB : EXP_IDX_LSB];
+            fp_b_frac_ex = fp_b_reg[FRAC_EX_IDX_MSB : FRAC_EX_IDX_LSB];
 
-        if(fp_b_frac_ex[0]) fp_b_frac_ex = fp_b_frac_ex + 1;
+            if(fp_b_frac_ex[0]) fp_b_frac_ex = fp_b_frac_ex + 1;
+        end else begin
+            fp_b_sign    = fp_b_i[SIGN_IDX];
+            fp_b_exp     = fp_b_i[EXP_IDX_MSB : EXP_IDX_LSB];
+            fp_b_frac_ex = fp_b_i[FRAC_EX_IDX_MSB : FRAC_EX_IDX_LSB];
+
+            if(fp_b_frac_ex[0]) fp_b_frac_ex = fp_b_frac_ex + 1;
+        end
     end
 
 
@@ -362,7 +582,7 @@ module rnv #(
     // Output
     assign fp_a_o  = fp_a_reg;
     assign fp_b_o  = {fp_b_sign, fp_b_exp, fp_b_frac_ex};
-    assign valid_o = valid_reg;
+    assign valid_o = (SAVE_FF == 0) ? valid_reg : valid_i;
 
 endmodule
 
@@ -375,7 +595,7 @@ endmodule
 module cvt #(
     parameter EXP_WIDTH = 0,
     parameter FRAC_WIDTH = 0,
-
+    parameter SAVE_FF = 0,
     ////////////////////////////////////////////////////////////////
     // Local parameters
     parameter FRAC_EX_WIDTH = 1 + 1 + FRAC_WIDTH + 1,
@@ -405,12 +625,14 @@ module cvt #(
     logic                        valid_reg;
 
     always_ff @(posedge clk_i) begin
-        fp_a_reg     <= fp_a_i;
-        fp_b_reg     <= fp_b_i;
-        if(rst_i) begin
-            valid_reg <= 0;
-        end else begin
-            valid_reg <= valid_i;
+        if(SAVE_FF == 0) begin
+            fp_a_reg     <= fp_a_i;
+            fp_b_reg     <= fp_b_i;
+            if(rst_i) begin
+                valid_reg <= 0;
+            end else begin
+                valid_reg <= valid_i;
+            end
         end
     end
 
@@ -425,19 +647,37 @@ module cvt #(
     logic [FRAC_EX_WIDTH - 1 : 0] fp_b_frac_ex;
 
     always_comb begin
-        fp_a_sign    = fp_a_reg[SIGN_IDX];
-        fp_a_exp     = fp_a_reg[EXP_IDX_MSB : EXP_IDX_LSB];
-        fp_a_frac_ex = fp_a_reg[FRAC_EX_IDX_MSB : FRAC_EX_IDX_LSB];
+        if(SAVE_FF == 0) begin
+            fp_a_sign    = fp_a_reg[SIGN_IDX];
+            fp_a_exp     = fp_a_reg[EXP_IDX_MSB : EXP_IDX_LSB];
+            fp_a_frac_ex = fp_a_reg[FRAC_EX_IDX_MSB : FRAC_EX_IDX_LSB];
 
-        fp_b_sign    = fp_b_reg[SIGN_IDX];
-        fp_b_exp     = fp_b_reg[EXP_IDX_MSB : EXP_IDX_LSB];
-        fp_b_frac_ex = fp_b_reg[FRAC_EX_IDX_MSB : FRAC_EX_IDX_LSB];
+            fp_b_sign    = fp_b_reg[SIGN_IDX];
+            fp_b_exp     = fp_b_reg[EXP_IDX_MSB : EXP_IDX_LSB];
+            fp_b_frac_ex = fp_b_reg[FRAC_EX_IDX_MSB : FRAC_EX_IDX_LSB];
 
-        if(fp_a_sign != fp_b_sign) begin
-            if(fp_a_sign) begin
-                fp_a_frac_ex = ~fp_a_frac_ex + 1;
-            end else begin
-                fp_b_frac_ex = ~fp_b_frac_ex + 1;
+            if(fp_a_sign != fp_b_sign) begin
+                if(fp_a_sign) begin
+                    fp_a_frac_ex = ~fp_a_frac_ex + 1;
+                end else begin
+                    fp_b_frac_ex = ~fp_b_frac_ex + 1;
+                end
+            end
+        end else begin
+            fp_a_sign    = fp_a_i[SIGN_IDX];
+            fp_a_exp     = fp_a_i[EXP_IDX_MSB : EXP_IDX_LSB];
+            fp_a_frac_ex = fp_a_i[FRAC_EX_IDX_MSB : FRAC_EX_IDX_LSB];
+
+            fp_b_sign    = fp_b_i[SIGN_IDX];
+            fp_b_exp     = fp_b_i[EXP_IDX_MSB : EXP_IDX_LSB];
+            fp_b_frac_ex = fp_b_i[FRAC_EX_IDX_MSB : FRAC_EX_IDX_LSB];
+
+            if(fp_a_sign != fp_b_sign) begin
+                if(fp_a_sign) begin
+                    fp_a_frac_ex = ~fp_a_frac_ex + 1;
+                end else begin
+                    fp_b_frac_ex = ~fp_b_frac_ex + 1;
+                end
             end
         end
     end
@@ -446,7 +686,7 @@ module cvt #(
     // Output
     assign fp_a_o  = {fp_a_sign, fp_a_exp, fp_a_frac_ex};
     assign fp_b_o  = {fp_b_sign, fp_b_exp, fp_b_frac_ex};
-    assign valid_o = valid_reg;
+    assign valid_o = (SAVE_FF == 0) ? valid_reg : valid_i;
 endmodule
 
 // Add Values Together (AVT) - stage 5
@@ -457,7 +697,7 @@ endmodule
 module avt #(
     parameter EXP_WIDTH = 0,
     parameter FRAC_WIDTH = 0,
-
+    parameter SAVE_FF = 0,
     ////////////////////////////////////////////////////////////////
     // Local parameters
     parameter FRAC_EX_WIDTH = 1 + 1 + FRAC_WIDTH + 1,
@@ -488,12 +728,14 @@ module avt #(
     logic                        valid_reg;
 
     always_ff @(posedge clk_i) begin
-        fp_a_reg     <= fp_a_i;
-        fp_b_reg     <= fp_b_i;
-        if(rst_i) begin
-            valid_reg <= 0;
-        end else begin
-            valid_reg <= valid_i;
+        if(SAVE_FF == 0) begin
+            fp_a_reg     <= fp_a_i;
+            fp_b_reg     <= fp_b_i;
+            if(rst_i) begin
+                valid_reg <= 0;
+            end else begin
+                valid_reg <= valid_i;
+            end
         end
     end
 
@@ -512,19 +754,35 @@ module avt #(
     logic [FRAC_EX_WIDTH - 1 : 0] fp_frac_ex;
 
     always_comb begin
-        fp_a_sign    = fp_a_reg[SIGN_IDX];
-        fp_a_exp     = fp_a_reg[EXP_IDX_MSB : EXP_IDX_LSB];
-        fp_a_frac_ex = fp_a_reg[FRAC_EX_IDX_MSB : FRAC_EX_IDX_LSB];
+        if(SAVE_FF == 0) begin
+            fp_a_sign    = fp_a_reg[SIGN_IDX];
+            fp_a_exp     = fp_a_reg[EXP_IDX_MSB : EXP_IDX_LSB];
+            fp_a_frac_ex = fp_a_reg[FRAC_EX_IDX_MSB : FRAC_EX_IDX_LSB];
 
-        fp_b_sign    = fp_b_reg[SIGN_IDX];
-        fp_b_exp     = fp_b_reg[EXP_IDX_MSB : EXP_IDX_LSB];
-        fp_b_frac_ex = fp_b_reg[FRAC_EX_IDX_MSB : FRAC_EX_IDX_LSB];
+            fp_b_sign    = fp_b_reg[SIGN_IDX];
+            fp_b_exp     = fp_b_reg[EXP_IDX_MSB : EXP_IDX_LSB];
+            fp_b_frac_ex = fp_b_reg[FRAC_EX_IDX_MSB : FRAC_EX_IDX_LSB];
 
-        fp_sign      = 0;
-        fp_exp       = fp_a_exp;
-        fp_frac_ex  = 0;
+            fp_sign      = 0;
+            fp_exp       = fp_a_exp;
+            fp_frac_ex  = 0;
 
-        fp_frac_ex = fp_a_frac_ex + fp_b_frac_ex;
+            fp_frac_ex = fp_a_frac_ex + fp_b_frac_ex;
+        end else begin
+            fp_a_sign    = fp_a_i[SIGN_IDX];
+            fp_a_exp     = fp_a_i[EXP_IDX_MSB : EXP_IDX_LSB];
+            fp_a_frac_ex = fp_a_i[FRAC_EX_IDX_MSB : FRAC_EX_IDX_LSB];
+
+            fp_b_sign    = fp_b_i[SIGN_IDX];
+            fp_b_exp     = fp_b_i[EXP_IDX_MSB : EXP_IDX_LSB];
+            fp_b_frac_ex = fp_b_i[FRAC_EX_IDX_MSB : FRAC_EX_IDX_LSB];
+
+            fp_sign      = 0;
+            fp_exp       = fp_a_exp;
+            fp_frac_ex  = 0;
+
+            fp_frac_ex = fp_a_frac_ex + fp_b_frac_ex;
+        end
     end
 
     ////////////////////////////////////////////////////////////////
@@ -532,7 +790,7 @@ module avt #(
     assign fp_o        = {fp_sign, fp_exp, fp_frac_ex};
     assign fp_a_sign_o = fp_a_sign;
     assign fp_b_sign_o = fp_b_sign;
-    assign valid_o     = valid_reg;
+    assign valid_o     = (SAVE_FF == 0) ? valid_reg : valid_i;
 endmodule
 
 // Convet to Unsigned (CVU) - stage 6
@@ -545,7 +803,7 @@ endmodule
 module cvu #(
     parameter EXP_WIDTH = 0,
     parameter FRAC_WIDTH = 0,
-
+    parameter SAVE_FF = 0,
     ////////////////////////////////////////////////////////////////
     // Local parameters
     parameter FRAC_EX_WIDTH = 1 + 1 + FRAC_WIDTH + 1,
@@ -576,13 +834,15 @@ module cvu #(
     logic                        valid_reg;
 
     always_ff @(posedge clk_i) begin
-        fp_reg        <= fp_i;
-        fp_a_sign_reg <= fp_a_sign_i;
-        fp_b_sign_reg <= fp_b_sign_i;
-        if(rst_i) begin
-            valid_reg <= 0;
-        end else begin
-            valid_reg <= valid_i;
+        if(SAVE_FF == 0) begin
+            fp_reg        <= fp_i;
+            fp_a_sign_reg <= fp_a_sign_i;
+            fp_b_sign_reg <= fp_b_sign_i;
+            if(rst_i) begin
+                valid_reg <= 0;
+            end else begin
+                valid_reg <= valid_i;
+            end
         end
     end
 
@@ -593,29 +853,47 @@ module cvu #(
     logic [FRAC_EX_WIDTH - 1 : 0] fp_frac_ex;
     
     always_comb begin
-        fp_sign    = fp_reg[SIGN_IDX];
-        fp_exp     = fp_reg[EXP_IDX_MSB : EXP_IDX_LSB];
-        fp_frac_ex = fp_reg[FRAC_EX_IDX_MSB : FRAC_EX_IDX_LSB];
+        if(SAVE_FF == 0) begin
+            fp_sign    = fp_reg[SIGN_IDX];
+            fp_exp     = fp_reg[EXP_IDX_MSB : EXP_IDX_LSB];
+            fp_frac_ex = fp_reg[FRAC_EX_IDX_MSB : FRAC_EX_IDX_LSB];
 
-        if(fp_a_sign_reg != fp_b_sign_reg) begin
-            if(fp_frac_ex[CARRY_IDX]) begin 
-                fp_frac_ex = ~fp_frac_ex + 1;
-                fp_sign = 1;
+            if(fp_a_sign_reg != fp_b_sign_reg) begin
+                if(fp_frac_ex[CARRY_IDX]) begin 
+                    fp_frac_ex = ~fp_frac_ex + 1;
+                    fp_sign = 1;
+                end else begin
+                    fp_sign = 0;
+                end
             end else begin
-                fp_sign = 0;
+                fp_sign = fp_a_sign_reg;
             end
+
+            if(fp_frac_ex == 0) fp_exp = 0;
         end else begin
-            fp_sign = fp_a_sign_reg;
+            fp_sign    = fp_i[SIGN_IDX];
+            fp_exp     = fp_i[EXP_IDX_MSB : EXP_IDX_LSB];
+            fp_frac_ex = fp_i[FRAC_EX_IDX_MSB : FRAC_EX_IDX_LSB];
+
+            if(fp_a_sign_i != fp_b_sign_i) begin
+                if(fp_frac_ex[CARRY_IDX]) begin 
+                    fp_frac_ex = ~fp_frac_ex + 1;
+                    fp_sign = 1;
+                end else begin
+                    fp_sign = 0;
+                end
+            end else begin
+                fp_sign = fp_a_sign_i;
+            end
+
+            if(fp_frac_ex == 0) fp_exp = 0;
         end
-
-        if(fp_frac_ex == 0) fp_exp = 0;
-
     end
 
     ////////////////////////////////////////////////////////////////
     // Output
     assign fp_o    = {fp_sign, fp_exp, fp_frac_ex};
-    assign valid_o = valid_reg;
+    assign valid_o = (SAVE_FF == 0) ? valid_reg : valid_i;
 endmodule
 
 // Normalize Results (NR) - stage 7
@@ -632,7 +910,7 @@ endmodule
 module nr #(
     parameter EXP_WIDTH = 0,
     parameter FRAC_WIDTH = 0,
-
+    parameter SAVE_FF = 0,
     ////////////////////////////////////////////////////////////////
     // Local parameters
     parameter FRAC_EX_WIDTH = 1 + 1 + FRAC_WIDTH + 1,
@@ -661,11 +939,13 @@ module nr #(
     logic                        valid_reg;
 
     always_ff @(posedge clk_i) begin
-        fp_reg        <= fp_i;
-        if(rst_i) begin
-            valid_reg <= 0;
-        end else begin
-            valid_reg <= valid_i;
+        if(SAVE_FF == 0) begin
+            fp_reg        <= fp_i;
+            if(rst_i) begin
+                valid_reg <= 0;
+            end else begin
+                valid_reg <= valid_i;
+            end
         end
     end
 
@@ -678,40 +958,72 @@ module nr #(
     logic          [FRAC_EX_WIDTH - 1 : 0] fp_frac_ex_const;
 
     always_comb begin
-        fp_sign    = fp_reg[SIGN_IDX];
-        fp_exp     = fp_reg[EXP_IDX_MSB : EXP_IDX_LSB];
-        fp_frac_ex = fp_reg[FRAC_EX_IDX_MSB : FRAC_EX_IDX_LSB];
+        if(SAVE_FF == 0) begin
+            fp_sign    = fp_reg[SIGN_IDX];
+            fp_exp     = fp_reg[EXP_IDX_MSB : EXP_IDX_LSB];
+            fp_frac_ex = fp_reg[FRAC_EX_IDX_MSB : FRAC_EX_IDX_LSB];
 
-        fp_exp_const = fp_exp[EXP_WIDTH - 1 : 0];
-        fp_frac_ex_const = fp_frac_ex;
+            fp_exp_const = fp_exp[EXP_WIDTH - 1 : 0];
+            fp_frac_ex_const = fp_frac_ex;
 
-        if(fp_frac_ex_const[CARRY_IDX]) begin
-            fp_frac_ex = fp_frac_ex_const >> 1;
-            fp_exp = fp_exp_const + 1;
-        end else if (fp_frac_ex_const[LEAD_IDX]) begin
-            // do nothing
-        end else begin
-            for(int i = 0; i < LEAD_IDX; i++) begin
-                if(fp_frac_ex_const[i]) begin
-                    if(fp_exp_const > (LEAD_IDX - i)) begin
-                        fp_frac_ex = fp_frac_ex_const << (LEAD_IDX - i);
-                        fp_exp = fp_exp_const - (LEAD_IDX - i);
-                    end else begin
-                        fp_frac_ex = 0;
-                        fp_exp     = 0;
+            if(fp_frac_ex_const[CARRY_IDX]) begin
+                fp_frac_ex = fp_frac_ex_const >> 1;
+                fp_exp = fp_exp_const + 1;
+            end else if (fp_frac_ex_const[LEAD_IDX]) begin
+                // do nothing
+            end else begin
+                for(int i = 0; i < LEAD_IDX; i++) begin
+                    if(fp_frac_ex_const[i]) begin
+                        if(fp_exp_const > (LEAD_IDX - i)) begin
+                            fp_frac_ex = fp_frac_ex_const << (LEAD_IDX - i);
+                            fp_exp = fp_exp_const - (LEAD_IDX - i);
+                        end else begin
+                            fp_frac_ex = 0;
+                            fp_exp     = 0;
+                        end
                     end
                 end
             end
-        end
 
-        if(fp_exp_const == EXP_MAX) begin
-            fp_exp = EXP_MAX;
+            if(fp_exp_const == EXP_MAX) begin
+                fp_exp = EXP_MAX;
+            end
+        end else begin
+            fp_sign    = fp_i[SIGN_IDX];
+            fp_exp     = fp_i[EXP_IDX_MSB : EXP_IDX_LSB];
+            fp_frac_ex = fp_i[FRAC_EX_IDX_MSB : FRAC_EX_IDX_LSB];
+
+            fp_exp_const = fp_exp[EXP_WIDTH - 1 : 0];
+            fp_frac_ex_const = fp_frac_ex;
+
+            if(fp_frac_ex_const[CARRY_IDX]) begin
+                fp_frac_ex = fp_frac_ex_const >> 1;
+                fp_exp = fp_exp_const + 1;
+            end else if (fp_frac_ex_const[LEAD_IDX]) begin
+                // do nothing
+            end else begin
+                for(int i = 0; i < LEAD_IDX; i++) begin
+                    if(fp_frac_ex_const[i]) begin
+                        if(fp_exp_const > (LEAD_IDX - i)) begin
+                            fp_frac_ex = fp_frac_ex_const << (LEAD_IDX - i);
+                            fp_exp = fp_exp_const - (LEAD_IDX - i);
+                        end else begin
+                            fp_frac_ex = 0;
+                            fp_exp     = 0;
+                        end
+                    end
+                end
+            end
+
+            if(fp_exp_const == EXP_MAX) begin
+                fp_exp = EXP_MAX;
+            end
         end
     end
     ////////////////////////////////////////////////////////////////
     // Output
     assign fp_o    = {fp_sign, fp_exp, fp_frac_ex};
-    assign valid_o = valid_reg;
+    assign valid_o = (SAVE_FF == 0) ? valid_reg : valid_i;
 endmodule
 
 
@@ -727,7 +1039,7 @@ endmodule
 module rr #(
     parameter EXP_WIDTH = 0,
     parameter FRAC_WIDTH = 0,
-
+    parameter SAVE_FF = 0,
     ////////////////////////////////////////////////////////////////
     // Local parameters
     parameter FRAC_EX_WIDTH = 1 + 1 + FRAC_WIDTH + 1,
@@ -759,11 +1071,13 @@ module rr #(
     logic                        valid_reg;
 
     always_ff @(posedge clk_i) begin
-        fp_reg        <= fp_i;
-        if(rst_i) begin
-            valid_reg <= 0;
-        end else begin
-            valid_reg <= valid_i;
+        if(SAVE_FF == 0) begin
+            fp_reg        <= fp_i;
+            if(rst_i) begin
+                valid_reg <= 0;
+            end else begin
+                valid_reg <= valid_i;
+            end
         end
     end
 
@@ -776,205 +1090,48 @@ module rr #(
     
 
     always_comb begin
-        fp_sign    = fp_reg[SIGN_IDX];
-        fp_exp     = fp_reg[EXP_IDX_MSB : EXP_IDX_LSB];
-        fp_frac_ex = fp_reg[FRAC_EX_IDX_MSB : FRAC_EX_IDX_LSB];
+        if(SAVE_FF == 0) begin
+            fp_sign    = fp_reg[SIGN_IDX];
+            fp_exp     = fp_reg[EXP_IDX_MSB : EXP_IDX_LSB];
+            fp_frac_ex = fp_reg[FRAC_EX_IDX_MSB : FRAC_EX_IDX_LSB];
 
-        fp_exp_const = fp_exp[EXP_WIDTH - 1 : 0];
+            fp_exp_const = fp_exp[EXP_WIDTH - 1 : 0];
         
-        if(fp_frac_ex[ROUND_IDX]) begin
-            fp_frac_ex = fp_frac_ex + 1; 
-        end
+            if(fp_frac_ex[ROUND_IDX]) begin
+                fp_frac_ex = fp_frac_ex + 1; 
+            end
 
-        if(fp_frac_ex[CARRY_IDX]) begin
-            fp_frac_ex = fp_frac_ex >> 1;
-            fp_exp = fp_exp + 1;
-        end
+            if(fp_frac_ex[CARRY_IDX]) begin
+                fp_frac_ex = fp_frac_ex >> 1;
+                fp_exp = fp_exp + 1;
+            end
 
-        if(fp_exp_const == EXP_MAX) fp_exp = EXP_MAX;
+            if(fp_exp_const == EXP_MAX) fp_exp = EXP_MAX;
+        end else begin
+            fp_sign    = fp_i[SIGN_IDX];
+            fp_exp     = fp_i[EXP_IDX_MSB : EXP_IDX_LSB];
+            fp_frac_ex = fp_i[FRAC_EX_IDX_MSB : FRAC_EX_IDX_LSB];
+
+            fp_exp_const = fp_exp[EXP_WIDTH - 1 : 0];
+        
+            if(fp_frac_ex[ROUND_IDX]) begin
+                fp_frac_ex = fp_frac_ex + 1; 
+            end
+
+            if(fp_frac_ex[CARRY_IDX]) begin
+                fp_frac_ex = fp_frac_ex >> 1;
+                fp_exp = fp_exp + 1;
+            end
+
+            if(fp_exp_const == EXP_MAX) fp_exp = EXP_MAX;
+        end
     end
 
     ////////////////////////////////////////////////////////////////
     // Output
     assign fp_o    = {fp_sign, fp_exp, fp_frac_ex[FRAC_IDX_MSB : FRAC_IDX_LSB]};
-    assign valid_o = valid_reg;
+    assign valid_o = (SAVE_FF == 0) ? valid_reg : valid_i;
 endmodule
 
-module floating_point_adder #(
-    parameter EXP_WIDTH  = 0,
-    parameter FRAC_WIDTH = 0,
 
-    ////////////////////////////////////////////////////////////////
-    // Local parameters
-    parameter FP_WIDTH_REG = 1 + EXP_WIDTH + FRAC_WIDTH,
-    parameter FP_WIDTH_TOT = 1 + EXP_WIDTH + 1 + 1 + FRAC_WIDTH + 1
-) (
-    input clk_i,
-    input rst_i,
-
-    input  [FP_WIDTH_REG - 1 : 0] fp_a_i,
-    input  [FP_WIDTH_REG - 1 : 0] fp_b_i,
-    input                         valid_i,
-
-    output [FP_WIDTH_REG - 1 : 0] fp_o,
-    output                        valid_o
-);
-
-    ////////////////////////////////////////////////////////////////
-    // 1 - sgm
-    logic [FP_WIDTH_TOT - 1 : 0] sgm_ngm_fp_a_w;
-    logic [FP_WIDTH_TOT - 1 : 0] sgm_ngm_fp_b_w;
-    logic                        sgm_ngm_valid_w;
-    logic [EXP_WIDTH - 1 : 0]    sgm_ngm_exp_diff_w;
-
-    sgm #(
-        .EXP_WIDTH(EXP_WIDTH),
-        .FRAC_WIDTH(FRAC_WIDTH)
-    ) sgm_inst (
-        .clk_i(clk_i),
-        .rst_i(rst_i),
-
-        .fp_a_i(fp_a_i),
-        .fp_b_i(fp_b_i),
-        .valid_i(valid_i),
-
-        .fp_a_o(sgm_ngm_fp_a_w),
-        .fp_b_o(sgm_ngm_fp_b_w),
-        .exp_diff_o(sgm_ngm_exp_diff_w),
-        .valid_o(sgm_ngm_valid_w)
-    );
-
-    ////////////////////////////////////////////////////////////////
-    // 2 -  ngm
-    logic [FP_WIDTH_TOT - 1 : 0] ngm_cvt_fp_a_w;
-    logic [FP_WIDTH_TOT - 1 : 0] ngm_cvt_fp_b_w;
-    logic                        ngm_cvt_valid_w;
-
-    ngm #(
-        .EXP_WIDTH(EXP_WIDTH),
-        .FRAC_WIDTH(FRAC_WIDTH)
-    ) ngm_inst (
-        .clk_i(clk_i),
-        .rst_i(rst_i),
-
-        .fp_a_i(sgm_ngm_fp_a_w),
-        .fp_b_i(sgm_ngm_fp_b_w),
-        .exp_diff_i(sgm_ngm_exp_diff_w),
-        .valid_i(sgm_ngm_valid_w),
-
-        .fp_a_o(ngm_cvt_fp_a_w),
-        .fp_b_o(ngm_cvt_fp_b_w),
-        .valid_o(ngm_cvt_valid_w)
-    );
-
-    ////////////////////////////////////////////////////////////////
-    // 3 - cvt 
-    logic [FP_WIDTH_TOT - 1 : 0] cvt_avt_fp_a_w;
-    logic [FP_WIDTH_TOT - 1 : 0] cvt_avt_fp_b_w;
-    logic                        cvt_avt_valid_w;
-
-    cvt #(
-        .EXP_WIDTH(EXP_WIDTH),
-        .FRAC_WIDTH(FRAC_WIDTH)
-    ) cvt_inst (
-        .clk_i(clk_i),
-        .rst_i(rst_i),
-
-        .fp_a_i(ngm_cvt_fp_a_w),
-        .fp_b_i(ngm_cvt_fp_b_w),
-        .valid_i(ngm_cvt_valid_w),
-
-        .fp_a_o(cvt_avt_fp_a_w),
-        .fp_b_o(cvt_avt_fp_b_w),
-        .valid_o(cvt_avt_valid_w)
-    );
-
-    ////////////////////////////////////////////////////////////////
-    // 4 - avt
-    logic [FP_WIDTH_TOT - 1 : 0] avt_cvu_fp_w;
-    logic                        avt_cvu_fp_a_sign_w;
-    logic                        avt_cvu_fp_b_sign_w;
-    logic                        avt_cvu_valid_w;
-
-    avt #(
-        .EXP_WIDTH(EXP_WIDTH),
-        .FRAC_WIDTH(FRAC_WIDTH)
-    ) avt_inst (
-        .clk_i(clk_i),
-        .rst_i(rst_i),
-
-        .fp_a_i(cvt_avt_fp_a_w),
-        .fp_b_i(cvt_avt_fp_b_w),
-        .valid_i(cvt_avt_valid_w),
-
-        .fp_o(avt_cvu_fp_w),
-        .fp_a_sign_o(avt_cvu_fp_a_sign_w),
-        .fp_b_sign_o(avt_cvu_fp_b_sign_w),
-        .valid_o(avt_cvu_valid_w)
-    );
-
-    ////////////////////////////////////////////////////////////////
-    // 5 - cvu 
-    logic [FP_WIDTH_TOT - 1 : 0] cvu_nr_fp_w;
-    logic                        cvu_nr_valid_w;
-
-    cvu #(
-        .EXP_WIDTH(EXP_WIDTH),
-        .FRAC_WIDTH(FRAC_WIDTH)
-    ) cvu_inst (
-        .clk_i(clk_i),
-        .rst_i(rst_i),
-
-        .fp_i(avt_cvu_fp_w),
-        .fp_a_sign_i(avt_cvu_fp_a_sign_w),
-        .fp_b_sign_i(avt_cvu_fp_b_sign_w),
-        .valid_i(avt_cvu_valid_w),
-
-        .fp_o(cvu_nr_fp_w),
-        .valid_o(cvu_nr_valid_w)
-    );
-
-    ////////////////////////////////////////////////////////////////
-    // 6 - nr 
-    logic [FP_WIDTH_TOT - 1 : 0] nr_rr_fp_w;
-    logic                        nr_rr_valid_w;
-
-    nr #(
-        .EXP_WIDTH(EXP_WIDTH),
-        .FRAC_WIDTH(FRAC_WIDTH)
-    ) nr_inst (
-        .clk_i(clk_i),
-        .rst_i(rst_i),
-
-        .fp_i(cvu_nr_fp_w),
-        .valid_i(cvu_nr_valid_w),
-
-        .fp_o(nr_rr_fp_w),
-        .valid_o(nr_rr_valid_w)
-    );
-
-    ////////////////////////////////////////////////////////////////
-    // 7 - rr
-    logic [FP_WIDTH_REG - 1 : 0] rr_o_fp_w;
-    logic                        rr_o_valid_w;
-
-    rr #(
-        .EXP_WIDTH(EXP_WIDTH),
-        .FRAC_WIDTH(FRAC_WIDTH)
-    ) rr_inst (
-        .clk_i(clk_i),
-        .rst_i(rst_i),
-        
-        .fp_i(nr_rr_fp_w),
-        .valid_i(nr_rr_valid_w),
-
-        .fp_o(rr_o_fp_w),
-        .valid_o(rr_o_valid_w)
-    );
-
-    ////////////////////////////////////////////////////////////////
-    // Output
-    assign fp_o    = rr_o_fp_w;
-    assign valid_o = rr_o_valid_w;
-endmodule
 

@@ -7,6 +7,7 @@
 module floating_point_adder_z #(
     parameter EXP_WIDTH  = 0,
     parameter FRAC_WIDTH = 0,
+    parameter SAVE_FF = 1,
 
     ////////////////////////////////////////////////////////////////
     // Local parameters
@@ -27,26 +28,39 @@ module floating_point_adder_z #(
     logic                        valid_reg[7];
 
     always_ff @(posedge clk_i) begin
-        // 7 stages 
-        fp_a_reg[0]  <= fp_a_i;
-        for(int i = 1; i < 7; i++) begin
-            fp_a_reg[i] <= fp_a_reg[i-1];
-        end
-        if(rst_i) begin
-            for(int i = 0; i < 7; i++) begin
-                valid_reg[i] <= 0;
-            end
-        end else begin  
-            valid_reg[0] <= valid_i;
+        if(SAVE_FF == 0) begin
+            // 7 stages 
+            fp_a_reg[0]  <= fp_a_i;
             for(int i = 1; i < 7; i++) begin
-                valid_reg[i] <= valid_reg[i-1];
+                fp_a_reg[i] <= fp_a_reg[i-1];
+            end
+            if(rst_i) begin
+                for(int i = 0; i < 7; i++) begin
+                    valid_reg[i] <= 0;
+                end
+            end else begin  
+                valid_reg[0] <= valid_i;
+                for(int i = 1; i < 7; i++) begin
+                    valid_reg[i] <= valid_reg[i-1];
+                end
+            end
+        end else begin
+            // 2 stage 
+            fp_a_reg[0]  <= fp_a_i;
+            fp_a_reg[1]  <= fp_a_reg[0];
+            if(rst_i) begin
+                valid_reg[0] <= 0;
+                valid_reg[1] <= 0;
+            end else begin  
+                valid_reg[0] <= valid_i;
+                valid_reg[1] <= valid_reg[0];
             end
         end
     end
     
     ////////////////////////////////////////////////////////////////
     // Output
-    assign fp_o    = fp_a_reg[6];
-    assign valid_o = valid_reg[6];
+    assign fp_o    = (SAVE_FF == 0) ? fp_a_reg[6] : fp_a_reg[1];
+    assign valid_o = (SAVE_FF == 0) ? valid_reg[6] : valid_reg[1];
 endmodule
 

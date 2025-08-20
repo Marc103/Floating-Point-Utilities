@@ -59,6 +59,7 @@
  module floating_point_multiplier #(
     parameter EXP_WIDTH = 0,
     parameter FRAC_WIDTH = 0,
+    parameter SAVE_FF = 1,
 
     ////////////////////////////////////////////////////////////////
     // Local parameters
@@ -187,14 +188,16 @@
     logic                                       valid_reg_1;
 
     always_ff @(posedge clk_i) begin
-        fp_sign_reg     <= fp_sign;
-        fp_exp_reg      <= fp_exp;
-        fp_frac_ex_reg  <= fp_frac_ex;
-        mult_by_zero[1] <= mult_by_zero[0];
-        if(rst_i) begin
-            valid_reg_1 <= 0;
-        end else begin  
-            valid_reg_1 <= valid_reg;
+        if(SAVE_FF == 0) begin
+            fp_sign_reg     <= fp_sign;
+            fp_exp_reg      <= fp_exp;
+            fp_frac_ex_reg  <= fp_frac_ex;
+            mult_by_zero[1] <= mult_by_zero[0];
+            if(rst_i) begin
+                valid_reg_1 <= 0;
+            end else begin  
+                valid_reg_1 <= valid_reg;
+            end
         end
     end
 
@@ -205,34 +208,63 @@
     ////////////////////////////////////////////////////////////////
     // Stage 2
     always_comb begin
-        fp_exp_1     = fp_exp_reg;
-        fp_frac_ex_1 = fp_frac_ex_reg; 
+        if(SAVE_FF == 0) begin
+            fp_exp_1     = fp_exp_reg;
+            fp_frac_ex_1 = fp_frac_ex_reg; 
 
-        if(fp_frac_ex_1[FRAC_EX_WIDTH - 1]) begin
-            fp_frac_ex_1 = fp_frac_ex_1 >> 1;
-            if(fp_exp_1 != EXP_MAX) begin
-                fp_exp_1 = fp_exp_1 + 1;
+            if(fp_frac_ex_1[FRAC_EX_WIDTH - 1]) begin
+                fp_frac_ex_1 = fp_frac_ex_1 >> 1;
+                if(fp_exp_1 != EXP_MAX) begin
+                    fp_exp_1 = fp_exp_1 + 1;
+                end
             end
-        end
 
-        if(fp_frac_ex_1[0]) begin
-            fp_frac_ex_1 = fp_frac_ex_1 + 1;
-        end
-
-        if(fp_frac_ex_1[FRAC_EX_WIDTH - 1]) begin
-            fp_frac_ex_1 = fp_frac_ex_1 >> 1;
-            if(fp_exp_1 != EXP_MAX) begin
-                fp_exp_1 = fp_exp_1 + 1;
+            if(fp_frac_ex_1[0]) begin
+                fp_frac_ex_1 = fp_frac_ex_1 + 1;
             end
-        end
 
-        if(mult_by_zero[1]) begin
-            fp_exp_1 = 0;
-            fp_frac_ex_1 = 0;
+            if(fp_frac_ex_1[FRAC_EX_WIDTH - 1]) begin
+                fp_frac_ex_1 = fp_frac_ex_1 >> 1;
+                if(fp_exp_1 != EXP_MAX) begin
+                    fp_exp_1 = fp_exp_1 + 1;
+                end
+            end
+
+            if(mult_by_zero[1]) begin
+                fp_exp_1 = 0;
+                fp_frac_ex_1 = 0;
+            end
+        end else begin
+            fp_exp_1     = fp_exp;
+            fp_frac_ex_1 = fp_frac_ex; 
+
+            if(fp_frac_ex_1[FRAC_EX_WIDTH - 1]) begin
+                fp_frac_ex_1 = fp_frac_ex_1 >> 1;
+                if(fp_exp_1 != EXP_MAX) begin
+                    fp_exp_1 = fp_exp_1 + 1;
+                end
+            end
+
+            if(fp_frac_ex_1[0]) begin
+                fp_frac_ex_1 = fp_frac_ex_1 + 1;
+            end
+
+            if(fp_frac_ex_1[FRAC_EX_WIDTH - 1]) begin
+                fp_frac_ex_1 = fp_frac_ex_1 >> 1;
+                if(fp_exp_1 != EXP_MAX) begin
+                    fp_exp_1 = fp_exp_1 + 1;
+                end
+            end
+
+            if(mult_by_zero[0]) begin
+                fp_exp_1 = 0;
+                fp_frac_ex_1 = 0;
+            end
+
         end
     end
 
-    assign fp_o = {fp_sign_reg, fp_exp_1, fp_frac_ex_1[FRAC_EX_WIDTH - 2 - 1:1]};
-    assign valid_o = valid_reg_1;
+    assign fp_o    = (SAVE_FF == 0) ? {fp_sign_reg, fp_exp_1, fp_frac_ex_1[FRAC_EX_WIDTH - 2 - 1:1]} : {fp_sign, fp_exp_1, fp_frac_ex_1[FRAC_EX_WIDTH - 2 - 1:1]};
+    assign valid_o = (SAVE_FF == 0) ? valid_reg_1 : valid_reg;
 
  endmodule

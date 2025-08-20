@@ -9,6 +9,7 @@
     parameter SIGN       = 0,
     parameter EXPONENT   = 0,
     parameter BY_ZERO    = 0,
+    parameter SAVE_FF    = 1,
     
     ////////////////////////////////////////////////////////////////
     // Local parameters
@@ -60,21 +61,31 @@
     end
 
     always_ff @(posedge clk_i) begin
-        // 2 stages 
-        fp_a_reg[0]  <= fp_a_i;
-        fp_a_reg[1]  <= fp_a_result;
-        if(rst_i) begin
-            valid_reg[0] <= 0;
-            valid_reg[1] <= 0;
-        end else begin  
-            valid_reg[0] <= valid_i;
-            valid_reg[1] <= valid_reg[0];
+        if(SAVE_FF == 0) begin
+            // 2 stages 
+            fp_a_reg[0]  <= fp_a_i;
+            fp_a_reg[1]  <= fp_a_result;
+            if(rst_i) begin
+                valid_reg[0] <= 0;
+                valid_reg[1] <= 0;
+            end else begin  
+                valid_reg[0] <= valid_i;
+                valid_reg[1] <= valid_reg[0];
+            end
+        end else begin
+            // 1 stages 
+            fp_a_reg[0]  <= fp_a_i;
+            if(rst_i) begin
+                valid_reg[0] <= 0;
+            end else begin  
+                valid_reg[0] <= valid_i;
+            end
         end
     end
 
     ////////////////////////////////////////////////////////////////
     // Output
-    assign fp_o    = fp_a_reg[1];
-    assign valid_o = valid_reg[1];
+    assign fp_o    = (SAVE_FF == 0) ? fp_a_reg[1] : fp_a_result ;
+    assign valid_o = (SAVE_FF == 0) ? valid_reg[1] : valid_reg[0];
 
  endmodule
