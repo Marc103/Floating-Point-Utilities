@@ -3,6 +3,7 @@
 interface dfdd_inf #(
     parameter EXP_WIDTH  = 0,
     parameter FRAC_WIDTH = 0,
+    parameter SCALES = 0,
 
     ////////////////////////////////////////////////////////////////
     // Local parameters
@@ -19,6 +20,10 @@ interface dfdd_inf #(
     logic [15:0]                 col_i;
     logic [15:0]                 row_i;
     logic                        valid_i;
+
+    logic [FP_WIDTH_REG - 1 : 0] w_i [SCALES][3];
+    logic [FP_WIDTH_REG - 1 : 0] w_t_i;
+    logic [FP_WIDTH_REG - 1 : 0] a_i [SCALES];
 
     logic [FP_WIDTH_REG - 1 : 0] z_o;
     logic [FP_WIDTH_REG - 1 : 0] c_o;

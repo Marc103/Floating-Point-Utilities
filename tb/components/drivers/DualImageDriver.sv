@@ -21,18 +21,15 @@ class DualImageDriver #(type T_0, type T_1, type I);
         for(int y = 0; y < img_0.height; y++) begin
             for(int x = 0; x < img_0.width; x++) begin
                 inf.i_rho_plus_uint8_i  <= img_0.image[y][x];
-                inf.i_rho_minus_uint8_i <= img_1.image[y][x]
+                inf.i_rho_minus_uint8_i <= img_1.image[y][x];
 
-                inf.i_rho_plus_i  <= img_0.image[y][x]
-                inf.i_rho_minus_i <= img_1.image[y][x];
-
-                inf.col_i <= y;
-                inf.row_i <= x;
+                inf.col_i <= x;
+                inf.row_i <= y;
 
                 inf.valid_i <= 1;
                 @(posedge inf.clk_i);
-                inf_valid_i <= 0;
-                rand_delay = $urandom;
+                inf.valid_i <= 0;
+                //rand_delay = $urandom;
                 repeat(rand_delay) @(posedge inf.clk_i);
             end
         end

@@ -47,7 +47,7 @@ class Image #(
         end
     endfunction 
 
-    function void generate_image_from_ppm();
+    function int generate_image_from_ppm();
         int file, r, g, b, width, height, maxval;
         string magic_num;
         string unique_filename;
@@ -57,7 +57,7 @@ class Image #(
         file = $fopen(this.file_path, "r");
         if(file == 0) begin
             $display("ERROR: Failed to open file %s", this.file_path);
-            return null;
+            return -1;
         end
 
         // Read PPM header (magic number, width, height, maxval)
@@ -68,7 +68,7 @@ class Image #(
         if (magic_num != "P3") begin
             $display("ERROR: Unsupported PPM format (only ASCII P3 supported).");
             $fclose(file);
-            return null;
+            return -1;
         end
 
         for (int y = 0; y < this.height; y++) begin
@@ -81,9 +81,10 @@ class Image #(
         end
 
         $fclose(file);
+        return 0;
     endfunction
 
-    function void generate_ppm_from_image();
+    function int generate_ppm_from_image();
         // Try to open the file_path for writing.
         int file = $fopen(this.file_path, "w");
         if (file == 0) begin
