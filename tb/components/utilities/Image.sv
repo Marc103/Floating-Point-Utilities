@@ -8,6 +8,7 @@ class Image #(
     parameter IMAGE_HEIGHT = 0
 );
     logic [DATA_WIDTH - 1 : 0] image [IMAGE_HEIGHT][IMAGE_WIDTH];
+    string file_path;
     int data_width;
     int width;
     int height;
@@ -45,6 +46,69 @@ class Image #(
             end
         end
     endfunction 
+
+    function void generate_image_from_ppm();
+        int file, r, g, b, width, height, maxval;
+        string magic_num;
+        string unique_filename;
+        string num;
+            
+        // open the file 
+        file = $fopen(this.file_path, "r");
+        if(file == 0) begin
+            $display("ERROR: Failed to open file %s", this.file_path);
+            return null;
+        end
+
+        // Read PPM header (magic number, width, height, maxval)
+        // %s reads the string (P3)
+        // %d reads integers (width, height, max color value)
+        $fscanf(file, "%s\n%d %d\n%d\n", magic_num, width, height, maxval);
+
+        if (magic_num != "P3") begin
+            $display("ERROR: Unsupported PPM format (only ASCII P3 supported).");
+            $fclose(file);
+            return null;
+        end
+
+        for (int y = 0; y < this.height; y++) begin
+            for (int x = 0; x < this.width; x++) begin
+                // Read the red, green and the blue values
+                $fscanf(file, "%d\n %d\n %d\n", r, g, b);
+                // just use green for monochrome
+                this.image[y][x] = g;
+            end
+        end
+
+        $fclose(file);
+    endfunction
+
+    function void generate_ppm_from_image();
+        // Try to open the file_path for writing.
+        int file = $fopen(this.file_path, "w");
+        if (file == 0) begin
+            $display("Error: Could not open file %s for writing.", this.file_path);
+            return -1;
+        end
+
+        // Write ppm header
+        $fdisplay(file, "P3");
+        $fdisplay(file, "%0d %0d", width, height);
+        $fdisplay(file, "%0d", (1 << DATA_WIDTH) - 1);
+
+        // Write pixel data
+        for(int y = 0; y < IMAGE_HEIGHT; y++) begin
+            for(int x = 0; x < IMAGE_WIDTH; x++) begin
+                // Since the image is monochrome, we repeat the value for R, G, B channels
+                int pixel_value = image[y][x];
+                $fdisplay(file, "%0d %0d %0d", pixel_value, pixel_value, pixel_value);
+            end
+        end
+
+        // Close the file and return
+        $fclose(file);
+        return 0;
+    endfunction
 
     function void print();
         $display();
