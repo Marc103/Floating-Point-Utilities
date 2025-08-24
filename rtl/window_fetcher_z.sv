@@ -28,7 +28,7 @@ module window_fetcher_z #(
     parameter WINDOW_HEIGHT_CENTER_START = (IMAGE_HEIGHT - 1) - WINDOW_HEIGHT_CENTER_REVERSE,
 
     parameter BUFFER_LINES = WINDOW_HEIGHT - 1,
-    parameter BUFFER_DEPTH = $clog2(IMAGE_WIDTH)
+    parameter BUFFER_DEPTH = $clog2(IMAGE_WIDTH + 3)
 ) (
     input clk_i,
     input rst_i,

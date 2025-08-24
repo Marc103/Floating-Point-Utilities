@@ -129,8 +129,12 @@ module dfdd_tb();
 
     assign w = '{'{16'h34d6,16'h361e,16'h3818},
                  '{16'h3d72,16'h3e22,16'h3e6c}};
+
+    //assign w = '{'{16'h34d6,16'h0000,16'h0000},
+    //             '{16'h3d72,16'h3e22,16'h3e6c}};
     assign w_t = 16'h45b2;
     assign a = '{16'h3ff2,16'h3cc2};
+    //assign a = '{16'h3c00,16'h3cc2};
     assign b = '{16'h4385, 16'h41d4};
 
     logic [15:0] fp16_in_0;
@@ -164,7 +168,7 @@ module dfdd_tb();
         .IMAGE_WIDTH(IMAGE_WIDTH),
         .IMAGE_HEIGHT(IMAGE_HEIGHT),
         .DX_DY_ENABLE(1),
-        .BORDER_ENABLE(0)
+        .BORDER_ENABLE(1)
     ) dual_scale (
         .clk_i(clk),
         .rst_i(rst),

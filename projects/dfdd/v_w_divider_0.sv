@@ -65,20 +65,38 @@ module v_w_divider_0 #(
         .fp_b_i (w_t_i),
         .fp_o   (c_o)
     );
-
+    /*
+    * *** READ ***
+    * this really needs to be rewritten, currently
+    * the delay depends on 'FRAC_EX_WIDTH' which depends
+    * purely on 'FRAC_WIDTH'. This is completely inconsistent
+    * with how i used other floating_*_z modules as delays
+    * (sorry in advance). It just so happens in this case that
+    * data and col/row widths are the same. see floating_point
+    * divider_z.sv
+    */
     floating_point_divider_z #(
-        .EXP_WIDTH(0),
-        .FRAC_WIDTH(15)
+        .EXP_WIDTH(EXP_WIDTH),
+        .FRAC_WIDTH(FRAC_WIDTH)
     ) col_delay (
         .clk_i(clk_i),
         .rst_i(rst_i),
         .fp_a_i(col_i),
         .fp_o  (col_o)
     );
-
+    /*
+    * *** READ ***
+    * this really needs to be rewritten, currently
+    * the delay depends on 'FRAC_EX_WIDTH' which depends
+    * purely on 'FRAC_WIDTH'. This is completely inconsistent
+    * with how i used other floating_*_z modules as delays
+    * (sorry in advance). It just so happens in this case that
+    * data and col/row widths are the same. see floating_point
+    * divider_z.sv
+    */
     floating_point_divider_z #(
-        .EXP_WIDTH(0),
-        .FRAC_WIDTH(15)
+        .EXP_WIDTH(EXP_WIDTH),
+        .FRAC_WIDTH(FRAC_WIDTH)
     ) row_delay (
         .clk_i(clk_i),
         .rst_i(rst_i),

@@ -1,5 +1,11 @@
 /* Floating Point Divider Z
  * to enable streaming data alongside.
+ * *** READ ***
+ * this really needs to be rewritten, currently
+ * the delay depends on 'FRAC_EX_WIDTH' which depends
+ * purely on 'FRAC_WIDTH'. This is completely inconsistent
+ * with how i used other floating_*_z modules as delays
+ * (sorry in advance).
  *
  */
 

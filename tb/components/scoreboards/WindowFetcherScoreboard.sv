@@ -29,14 +29,14 @@ class WindowFetcherScoreboard #(type T_window, parameter BORDER_ENABLE = 0, para
                     window_golden.print();
                     window_dut.print();
                 end
-                /*
+                
                 else begin
                     $display("Window values match:");
                     $display("#%d", received);
                     window_golden.print();
                     window_dut.print();
                 end
-                */
+                
             end else begin
                 if(!compare_no_border(window_dut, window_golden)) begin
                     $display("Window values do not match:");
@@ -44,14 +44,14 @@ class WindowFetcherScoreboard #(type T_window, parameter BORDER_ENABLE = 0, para
                     window_golden.print();
                     window_dut.print();
                 end 
-                /*
+                
                 else begin
                     $display("Window values match:");
                     $display("#%d", received);
                     window_golden.print();
                     window_dut.print();
                 end
-                */
+                
             end
             if((window_dut.col_center != window_golden.col_center) || 
                 (window_dut.row_center != window_golden.row_center)) begin

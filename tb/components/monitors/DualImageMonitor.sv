@@ -25,7 +25,7 @@ class DualImageMonitor #(type T_0, type T_1, type I);
             if(inf.valid_o) begin
                 depth.image[inf.row_o][inf.col_o] = inf.z_o;
                 confidence.image[inf.row_o][inf.col_o] = inf.c_o;
-
+                
                 if((inf.row_o == (depth.height - 1)) && (inf.col_o == (depth.width - 1))) begin
                     case(seq)
                         0 : begin 

@@ -599,11 +599,11 @@ module preprocessing_fp16 #(
         .fp_a_i (i_t_minus_data_w),
         .fp_o   (i_t_data_w)
     );
-
+    
     assign i_a_o   = i_a_data_w;
     assign i_t_o   = i_t_data_w;
     assign col_o   = i_a_col_w;
     assign row_o   = i_a_row_w;
     assign valid_o = i_a_valid_w;
-
+    
 endmodule

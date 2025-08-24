@@ -41,8 +41,7 @@ class Image #(
         int i = 0;
         for(int r = 0; r < IMAGE_HEIGHT; r++) begin
             for(int c = 0; c < IMAGE_WIDTH; c++) begin
-                this.image[r][c] = i;
-                i++;
+                this.image[r][c] = r + c;
             end
         end
     endfunction 

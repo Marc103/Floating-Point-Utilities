@@ -36,7 +36,7 @@ module window_fetcher_tb();
     localparam IMAGE_WIDTH  = 5;
     localparam IMAGE_HEIGHT = 5;
 
-    localparam WINDOW_WIDTH  = 5;
+    localparam WINDOW_WIDTH  = 1;
     localparam WINDOW_HEIGHT = 5;
     localparam WINDOW_WIDTH_CENTER_OFFSET  = 0;
     localparam WINDOW_HEIGHT_CENTER_OFFSET = 0;
