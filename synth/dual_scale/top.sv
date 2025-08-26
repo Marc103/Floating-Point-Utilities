@@ -430,7 +430,12 @@ module top #(
     assign row_in_0 = rd_sof_sbi_delay && valid_in_0 ? 0 : row_in;
 
     // main processing elements ----------------------------
-
+    logic [15:0] fp16_z_out;
+    logic [15:0] fp16_c_out;
+    logic [15:0] col_out;
+    logic [15:0] row_out;
+    logic        valid_out;
+    
     logic [15:0] w [2][3];
     logic [15:0] w_t;
     logic [15:0] a [2];
@@ -448,8 +453,8 @@ module top #(
         .DX_DY_ENABLE(1),
         .BORDER_ENABLE(0)
     ) dual_scale (
-        .clk_i(clk_i),
-        .rst_i(rst_i),
+        .clk_i(core_clk),
+        .rst_i(sys_reset),
 
         .i_rho_plus_i (fp16_in_0),
         .i_rho_minus_i(fp16_in_1),
@@ -488,7 +493,7 @@ module top #(
     );
 
     fp16_u8_converter #(
-        .LEAD_EXPONENT_UNBIASED(3)
+        .LEAD_EXPONENT_UNBIASED(7)
     ) c_fp16_u8_converter (
         .clk_i(core_clk),
         .rst_i(sys_reset),
