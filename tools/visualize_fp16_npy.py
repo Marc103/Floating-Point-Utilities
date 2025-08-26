@@ -37,7 +37,7 @@ def main():
     arr = np.load(args.npy, allow_pickle=False)
 
     # Always cast to float32 for stability
-    arr = arr.astype(np.float32)
+    arr = arr.astype(np.float16)
 
     if arr.ndim != 2:
         raise ValueError(f"Expected a 2D array, got shape {arr.shape}")
@@ -48,33 +48,10 @@ def main():
     if args.rotate90:
         img = np.rot90(img)
 
-    # Determine vmin/vmax
-    vmin, vmax = args.vmin, args.vmax
-    if vmin is None or vmax is None:
-        if args.robust and (vmin is None or vmax is None):
-            plow, phigh = args.robust
-            if not (0 <= plow < phigh <= 100):
-                raise ValueError("Percentiles must satisfy 0 <= PLOW < PHIGH <= 100")
-            finite = img[np.isfinite(img)]
-            if finite.size == 0:
-                raise ValueError("No finite values to compute robust range.")
-            pr = np.percentile(finite, [plow, phigh])
-            vmin = pr[0] if vmin is None else vmin
-            vmax = pr[1] if vmax is None else vmax
-
-    # Choose normalization
-    if args.log:
-        pos = img[np.isfinite(img) & (img > 0)]
-        if pos.size == 0:
-            raise ValueError("Log scaling requested but no positive values found.")
-        if vmin is None: vmin = float(np.min(pos))
-        norm = LogNorm(vmin=vmin, vmax=vmax)
-    else:
-        norm = Normalize(vmin=vmin, vmax=vmax)
 
     # Plot
     plt.figure()
-    im = plt.imshow(img, cmap=args.cmap, norm=norm, origin="upper", interpolation="nearest")
+    im = plt.imshow(img, cmap=args.cmap, vmin=args.vmin, vmax=args.vmax)
     plt.colorbar(im)
     plt.title(args.title or Path(args.npy).name)
     plt.tight_layout()
