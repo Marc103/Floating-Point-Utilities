@@ -57,6 +57,7 @@ module dual_scale_wrapper_fp16 #(
         .col_o  (i_a_col_w),
         .row_o  (i_a_row_w),
         .valid_o(i_a_valid_w)
+
     );
 
     logic [FP_WIDTH_REG - 1 : 0] v_0_data_w;
@@ -80,11 +81,17 @@ module dual_scale_wrapper_fp16 #(
         .clk_i(clk_i),
         .rst_i(rst_i),
 
-        .i_a_i  (i_a_data_w),
-        .i_t_i  (i_t_data_w),
-        .col_i  (i_a_col_w),
-        .row_i  (i_a_row_w),
-        .valid_i(i_a_valid_w),
+        //.i_a_i  (i_a_data_w),
+        //.i_t_i  (i_t_data_w),
+        //.col_i  (i_a_col_w),
+        //.row_i  (i_a_row_w),
+        //.valid_i(i_a_valid_w),
+
+        .i_a_i  (i_rho_plus_i),
+        .i_t_i  (i_rho_minus_i),
+        .col_i  (col_i),
+        .row_i  (row_i),
+        .valid_i(valid_i),
 
         .w_i(w_i[0]),
         .a_i(a_i[0]),
@@ -96,11 +103,17 @@ module dual_scale_wrapper_fp16 #(
         .row_downsample_o  (i_a_0_downsample_row_w),
         .valid_downsample_o(i_a_0_downsample_valid_w),
 
-        .v_o    (v_0_data_w),
-        .w_o    (w_0_data_w),
-        .col_o  (v_0_col_w),
-        .row_o  (v_0_row_w),
-        .valid_o(v_0_valid_w)
+        //.v_o    (v_0_data_w),
+        //.w_o    (w_0_data_w),
+        //.col_o  (v_0_col_w),
+        //.row_o  (v_0_row_w),
+        //.valid_o(v_0_valid_w)
+
+        .v_o    (z_o),
+        .w_o    (c_o),
+        .col_o  (col_o),
+        .row_o  (row_o),
+        .valid_o(valid_o)
     );
 
     logic [FP_WIDTH_REG - 1 : 0] v_1_data_w;
@@ -170,6 +183,231 @@ module dual_scale_wrapper_fp16 #(
         .valid_o(v_added_valid_w)
     );
 
+    logic [FP_WIDTH_REG - 1 : 0] boxh_kernel_w [1][3];
+    always_comb begin
+        boxh_kernel_w[0][0] = 16'h3555;
+        boxh_kernel_w[0][1] = 16'h3555;
+        boxh_kernel_w[0][2] = 16'h3555;
+    end
+
+    logic [FP_WIDTH_REG - 1 : 0] boxv_kernel_w [3][1];
+    always_comb begin
+        boxv_kernel_w[0][0] = 16'h3555;
+        boxv_kernel_w[1][0] = 16'h3555;
+        boxv_kernel_w[2][0] = 16'h3555;
+    end
+
+    
+    logic [(FP_WIDTH_REG * 2) - 1 : 0] v_w_added_zip_data_w;
+    logic [15:0]                       v_w_added_zip_col_w;
+    logic [15:0]                       v_w_added_zip_row_w;
+    logic                              v_w_added_zip_valid_w;
+
+    assign v_w_added_zip_data_w  = {v_added_data_w, w_added_data_w};
+    assign v_w_added_zip_col_w   = v_added_col_w;
+    assign v_w_added_zip_row_w   = v_added_row_w;
+    assign v_w_added_zip_valid_w = v_added_valid_w;
+
+    logic [(FP_WIDTH_REG * 2) - 1 : 0] v_w_added_zip_wfh_window_w [1][3];
+    logic [15:0]                       v_w_added_zip_wfh_col_w;
+    logic [15:0]                       v_w_added_zip_wfh_row_w;
+    logic                              v_w_added_zip_wfh_valid_w;
+    
+    logic [FP_WIDTH_REG - 1 : 0] v_added_wfh_window_w [1][3];
+    logic [15:0]                 v_added_wfh_col_w;
+    logic [15:0]                 v_added_wfh_row_w;
+    logic                        v_added_wfh_valid_w;
+
+    logic [FP_WIDTH_REG - 1 : 0] w_added_wfh_window_w [1][3];
+    logic [15:0]                 w_added_wfh_col_w;
+    logic [15:0]                 w_added_wfh_row_w;
+    logic                        w_added_wfh_valid_w;
+
+    window_fetcher #(
+        .DATA_WIDTH   (FP_WIDTH_REG * 2),
+        .IMAGE_WIDTH  (IMAGE_WIDTH),
+        .IMAGE_HEIGHT (IMAGE_HEIGHT),
+        .WINDOW_WIDTH (3),
+        .WINDOW_HEIGHT(1),
+        .BORDER_ENABLE(BORDER_ENABLE)
+    ) v_w_added_zip_window_fetcher_h (
+        .clk_i(clk_i),
+        .rst_i(rst_i),
+
+        .data_i (v_w_added_zip_data_w),
+        .col_i  (v_w_added_zip_col_w),
+        .row_i  (v_w_added_zip_row_w),
+        .valid_i(v_w_added_zip_valid_w),
+
+        .window_o(v_w_added_zip_wfh_window_w),
+        .col_o   (v_w_added_zip_wfh_col_w),
+        .row_o   (v_w_added_zip_wfh_row_w),
+        .valid_o (v_w_added_zip_wfh_valid_w)
+    );
+
+    // unzip
+    always_comb begin
+        for(int c = 0; c < 3; c++) begin
+            v_added_wfh_window_w[0][c] = v_w_added_zip_wfh_window_w[0][c][(FP_WIDTH_REG * 2) - 1 : FP_WIDTH_REG];
+            w_added_wfh_window_w[0][c] = v_w_added_zip_wfh_window_w[0][c][FP_WIDTH_REG - 1 : 0];
+        end
+
+        v_added_wfh_col_w   = v_w_added_zip_wfh_col_w;
+        v_added_wfh_row_w   = v_w_added_zip_wfh_row_w;
+        v_added_wfh_valid_w = v_w_added_zip_wfh_valid_w;
+
+        w_added_wfh_col_w   = v_w_added_zip_wfh_col_w;
+        w_added_wfh_row_w   = v_w_added_zip_wfh_row_w;
+        w_added_wfh_valid_w = v_w_added_zip_wfh_valid_w;
+    end
+
+    logic [FP_WIDTH_REG - 1 : 0] v_added_boxh_data_w;
+    logic [15:0]                 v_added_boxh_col_w;
+    logic [15:0]                 v_added_boxh_row_w;
+    logic                        v_added_boxh_valid_w;
+    
+    box_h_0_fp16 v_added_box_h (
+        .clk_i(clk_i),
+        .rst_i(rst_i),
+
+        .window_i(v_added_wfh_window_w),
+        .kernel_i(boxh_kernel_w),
+        .col_i   (v_added_wfh_col_w),
+        .row_i   (v_added_wfh_row_w),
+        .valid_i (v_added_wfh_valid_w),
+
+        .data_o (v_added_boxh_data_w),
+        .col_o  (v_added_boxh_col_w),
+        .row_o  (v_added_boxh_row_w),
+        .valid_o(v_added_boxh_valid_w)
+    );
+
+    logic [FP_WIDTH_REG - 1 : 0] w_added_boxh_data_w;
+    logic [15:0]                 w_added_boxh_col_w;
+    logic [15:0]                 w_added_boxh_row_w;
+    logic                        w_added_boxh_valid_w;
+    
+    box_h_0_fp16 w_added_box_h (
+        .clk_i(clk_i),
+        .rst_i(rst_i),
+
+        .window_i(w_added_wfh_window_w),
+        .kernel_i(boxh_kernel_w),
+        .col_i   (w_added_wfh_col_w),
+        .row_i   (w_added_wfh_row_w),
+        .valid_i (w_added_wfh_valid_w),
+
+        .data_o (w_added_boxh_data_w),
+        .col_o  (w_added_boxh_col_w),
+        .row_o  (w_added_boxh_row_w),
+        .valid_o(w_added_boxh_valid_w)
+    );
+
+    logic [(FP_WIDTH_REG * 2) - 1 : 0] v_w_added_boxh_zip_data_w;
+    logic [15:0]                       v_w_added_boxh_zip_col_w;
+    logic [15:0]                       v_w_added_boxh_zip_row_w;
+    logic                              v_w_added_boxh_zip_valid_w;
+
+    assign v_w_added_boxh_zip_data_w  = {v_added_boxh_data_w, w_added_boxh_data_w};
+    assign v_w_added_boxh_zip_col_w   = v_added_boxh_col_w;
+    assign v_w_added_boxh_zip_row_w   = v_added_boxh_row_w;
+    assign v_w_added_boxh_zip_valid_w = v_added_boxh_valid_w;
+
+    logic [(FP_WIDTH_REG * 2) - 1 : 0] v_w_added_wfv_window_w [3][1];
+    logic [15:0]                       v_w_added_wfv_col_w;
+    logic [15:0]                       v_w_added_wfv_row_w;
+    logic                              v_w_added_wfv_valid_w;
+
+    logic [FP_WIDTH_REG - 1 : 0] v_added_boxh_wfv_window_w [3][1];
+    logic [15:0]                 v_added_boxh_wfv_col_w;
+    logic [15:0]                 v_added_boxh_wfv_row_w;
+    logic                        v_added_boxh_wfv_valid_w;
+
+    logic [FP_WIDTH_REG - 1 : 0] w_added_boxh_wfv_window_w[3][1];
+    logic [15:0]                 w_added_boxh_wfv_col_w;
+    logic [15:0]                 w_added_boxh_wfv_row_w;
+    logic                        w_added_boxh_wfv_valid_w;
+
+    window_fetcher #(
+        .DATA_WIDTH   (FP_WIDTH_REG * 2),
+        .IMAGE_WIDTH  (IMAGE_WIDTH),
+        .IMAGE_HEIGHT (IMAGE_HEIGHT),
+        .WINDOW_WIDTH (1),
+        .WINDOW_HEIGHT(3),
+        .BORDER_ENABLE(BORDER_ENABLE)
+    ) v_w_added_window_fetcher_v (
+        .clk_i(clk_i),
+        .rst_i(rst_i),
+
+        .data_i (v_w_added_boxh_zip_data_w),
+        .col_i  (v_w_added_boxh_zip_col_w),
+        .row_i  (v_w_added_boxh_zip_row_w),
+        .valid_i(v_w_added_boxh_zip_valid_w),
+
+        .window_o(v_w_added_wfv_window_w),
+        .col_o   (v_w_added_wfv_col_w),
+        .row_o   (v_w_added_wfv_row_w),
+        .valid_o (v_w_added_wfv_valid_w)
+    );
+
+    // unzip
+    always_comb begin
+        for(int c = 0; c < 3; c++) begin
+            v_added_boxh_wfv_window_w [c][0] = v_w_added_wfv_window_w[c][0][(FP_WIDTH_REG * 2) - 1: FP_WIDTH_REG];
+            w_added_boxh_wfv_window_w[c][0] = v_w_added_wfv_window_w[c][0][FP_WIDTH_REG - 1 : 0];
+        end
+
+        v_added_boxh_wfv_col_w   = v_w_added_wfv_col_w;
+        v_added_boxh_wfv_row_w   = v_w_added_wfv_row_w;
+        v_added_boxh_wfv_valid_w = v_w_added_wfv_valid_w;
+
+        w_added_boxh_wfv_col_w   = v_w_added_wfv_col_w;
+        w_added_boxh_wfv_row_w   = v_w_added_wfv_row_w;
+        w_added_boxh_wfv_valid_w = v_w_added_wfv_valid_w;
+    end
+
+    logic [FP_WIDTH_REG - 1 : 0] v_added_box_data_w;
+    logic [15:0]                 v_added_box_col_w;
+    logic [15:0]                 v_added_box_row_w;
+    logic                        v_added_box_valid_w;
+
+    box_v_0_fp16 v_added_box_v (
+        .clk_i(clk_i),
+        .rst_i(rst_i),
+
+        .window_i(v_added_boxh_wfv_window_w),
+        .kernel_i(boxv_kernel_w),
+        .col_i   (v_added_boxh_wfv_col_w),
+        .row_i   (v_added_boxh_wfv_row_w),
+        .valid_i (v_added_boxh_wfv_valid_w),
+
+        .data_o (v_added_box_data_w),
+        .col_o  (v_added_box_col_w),
+        .row_o  (v_added_box_row_w),
+        .valid_o(v_added_box_valid_w)
+    );
+
+    logic [FP_WIDTH_REG - 1 : 0] w_added_box_data_w;
+    logic [15:0]                 w_added_box_col_w;
+    logic [15:0]                 w_added_box_row_w;
+    logic                        w_added_box_valid_w;
+
+    box_v_0_fp16 w_added_box_v (
+        .clk_i(clk_i),
+        .rst_i(rst_i),
+
+        .window_i(w_added_boxh_wfv_window_w),
+        .kernel_i(boxv_kernel_w),
+        .col_i   (w_added_boxh_wfv_col_w),
+        .row_i   (w_added_boxh_wfv_row_w),
+        .valid_i (w_added_boxh_wfv_valid_w),
+
+        .data_o (w_added_box_data_w),
+        .col_o  (w_added_box_col_w),
+        .row_o  (w_added_box_row_w),
+        .valid_o(w_added_box_valid_w)
+    );
+
     v_w_divider_0 #(
         .EXP_WIDTH(EXP_WIDTH),
         .FRAC_WIDTH(FRAC_WIDTH)
@@ -177,18 +415,18 @@ module dual_scale_wrapper_fp16 #(
         .clk_i(clk_i),
         .rst_i(rst_i),
         
-        .v_i    (v_added_data_w),
-        .w_i    (w_added_data_w),
+        .v_i    (v_added_box_data_w),
+        .w_i    (w_added_box_data_w),
         .w_t_i  (w_t_i),
-        .col_i  (v_added_col_w),
-        .row_i  (v_added_row_w),
-        .valid_i(v_added_valid_w),
+        .col_i  (v_added_box_col_w),
+        .row_i  (v_added_box_row_w),
+        .valid_i(v_added_box_valid_w)
 
-        .z_o    (z_o),
-        .c_o    (c_o),
-        .col_o  (col_o),
-        .row_o  (row_o),
-        .valid_o(valid_o)
+        //.z_o    (z_o),
+        //.c_o    (c_o),
+        //.col_o  (col_o),
+        //.row_o  (row_o),
+        //.valid_o(valid_o)
     );
 
 endmodule

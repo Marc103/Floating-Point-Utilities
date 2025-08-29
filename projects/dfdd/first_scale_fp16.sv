@@ -101,6 +101,7 @@ module first_scale_fp16 #(
         upsampler_v_0_kernel_w[2][0] = 16'h3800;
     end
 
+
     logic [FP_WIDTH_REG - 1 : 0] upsampler_h_1_kernel_w [1][5];
     always_comb begin
         upsampler_h_1_kernel_w[0][0] = 16'h3800;
@@ -118,6 +119,49 @@ module first_scale_fp16 #(
         upsampler_v_1_kernel_w[3][0] = 16'h0000;
         upsampler_v_1_kernel_w[4][0] = 16'h3800;
     end
+
+    logic [FP_WIDTH_REG - 1 : 0] upsampler_sh_h_0_kernel_w [1][4];
+    always_comb begin
+        upsampler_sh_h_0_kernel_w[0][0] = 16'h3400;
+        upsampler_sh_h_0_kernel_w[0][1] = 16'h3a00;
+        upsampler_sh_h_0_kernel_w[0][2] = 16'h3a00;
+        upsampler_sh_h_0_kernel_w[0][3] = 16'h3400;
+
+    end
+
+    logic [FP_WIDTH_REG - 1 : 0] upsampler_sh_v_0_kernel_w [4][1];
+    always_comb begin
+        upsampler_sh_v_0_kernel_w[0][0] = 16'h3400;
+        upsampler_sh_v_0_kernel_w[1][0] = 16'h3a00;
+        upsampler_sh_v_0_kernel_w[2][0] = 16'h3a00;
+        upsampler_sh_v_0_kernel_w[3][0] = 16'h3400;
+    end
+
+    logic [FP_WIDTH_REG - 1 : 0] upsampler_sh_h_1_kernel_w [1][7];
+    always_comb begin
+        upsampler_sh_h_1_kernel_w[0][0] = 16'h3400;
+        upsampler_sh_h_1_kernel_w[0][1] = 16'h0000;
+        upsampler_sh_h_1_kernel_w[0][2] = 16'h3a00;
+        upsampler_sh_h_1_kernel_w[0][3] = 16'h0000;
+        upsampler_sh_h_1_kernel_w[0][4] = 16'h3a00;
+        upsampler_sh_h_1_kernel_w[0][5] = 16'h0000;
+        upsampler_sh_h_1_kernel_w[0][6] = 16'h3400;
+
+    end
+
+    logic [FP_WIDTH_REG - 1 : 0] upsampler_sh_v_1_kernel_w [7][1];
+    always_comb begin
+        upsampler_sh_v_1_kernel_w[0][0] = 16'h3400;
+        upsampler_sh_v_1_kernel_w[1][0] = 16'h0000;
+        upsampler_sh_v_1_kernel_w[2][0] = 16'h3a00;
+        upsampler_sh_v_1_kernel_w[3][0] = 16'h0000;
+        upsampler_sh_v_1_kernel_w[4][0] = 16'h3a00;
+        upsampler_sh_v_1_kernel_w[5][0] = 16'h0000;
+        upsampler_sh_v_1_kernel_w[6][0] = 16'h3400;
+    end
+
+
+
 
     logic [FP_WIDTH_REG - 1 : 0] pass_5_5_kernel_w [5][5];
     always_comb begin
@@ -398,7 +442,8 @@ module first_scale_fp16 #(
         .IMAGE_HEIGHT (IMAGE_HEIGHT),
         .WINDOW_WIDTH (3),
         .WINDOW_HEIGHT(1),
-        .BORDER_ENABLE(BORDER_ENABLE)
+        .BORDER_ENABLE(BORDER_ENABLE),
+        .WINDOW_WIDTH_CENTER_OFFSET(-1)
     ) i_a_gaussian_window_fetcher_h (
         .clk_i(clk_i),
         .rst_i(rst_i),
@@ -471,7 +516,8 @@ module first_scale_fp16 #(
         .IMAGE_HEIGHT (IMAGE_HEIGHT),
         .WINDOW_WIDTH (3),
         .WINDOW_HEIGHT(1),
-        .BORDER_ENABLE(BORDER_ENABLE)
+        .BORDER_ENABLE(BORDER_ENABLE),
+        .WINDOW_WIDTH_CENTER_OFFSET(-1)
     ) i_a_gaussian_window_fetcher_h_b (
         .clk_i(clk_i),
         .rst_i(rst_i),
@@ -546,7 +592,8 @@ module first_scale_fp16 #(
         .IMAGE_HEIGHT (IMAGE_HEIGHT),
         .WINDOW_WIDTH (1),
         .WINDOW_HEIGHT(3),
-        .BORDER_ENABLE(BORDER_ENABLE)
+        .BORDER_ENABLE(BORDER_ENABLE),
+        .WINDOW_HEIGHT_CENTER_OFFSET(-1)
     ) i_a_gaussian_zip_window_fetcher_v (
         .clk_i(clk_i),
         .rst_i(rst_i),
@@ -567,7 +614,7 @@ module first_scale_fp16 #(
         for(int c = 0; c < 3; c++) begin
             i_a_gaussian_wfv_window_w[c][0] = i_a_gaussian_zip_wfv_window_w[c][0][(FP_WIDTH_REG * 2) - 1 : FP_WIDTH_REG];
         end
-        i_a_gaussian_wfv_data_b_w = i_a_gaussian_zip_wfv_window_w[0][0];
+        i_a_gaussian_wfv_data_b_w = i_a_gaussian_zip_wfv_window_w[0][0][FP_WIDTH_REG - 1 : 0];
 
         i_a_gaussian_wfv_col_w   = i_a_gaussian_zip_wfv_col_w;
         i_a_gaussian_wfv_row_w   = i_a_gaussian_zip_wfv_row_w;
@@ -825,7 +872,7 @@ module first_scale_fp16 #(
     // unzip
     always_comb begin
         for(int c = 0; c < 5; c++) begin
-            i_a_gaussian_downsampled_z_wfv_window_w[c][0] = i_a_gaussian_downsampled_z_zip_wfv_window_w[c][0][(FP_WIDTH_REG * 2) - 1 : 0];
+            i_a_gaussian_downsampled_z_wfv_window_w[c][0] = i_a_gaussian_downsampled_z_zip_wfv_window_w[c][0][(FP_WIDTH_REG * 2) - 1 : FP_WIDTH_REG];
         end
         i_a_gaussian_downsampled_z_wfv_data_b_w = i_a_gaussian_downsampled_z_zip_wfv_window_w[2][0][FP_WIDTH_REG - 1 : 0];
 
@@ -1118,7 +1165,8 @@ module first_scale_fp16 #(
         .IMAGE_HEIGHT (IMAGE_HEIGHT),
         .WINDOW_WIDTH (3),
         .WINDOW_HEIGHT(1),
-        .BORDER_ENABLE(BORDER_ENABLE)
+        .BORDER_ENABLE(BORDER_ENABLE),
+        .WINDOW_WIDTH_CENTER_OFFSET(-1)
     ) i_t_gaussian_window_fetcher_h (
         .clk_i(clk_i),
         .rst_i(rst_i),
@@ -1191,7 +1239,8 @@ module first_scale_fp16 #(
         .IMAGE_HEIGHT (IMAGE_HEIGHT),
         .WINDOW_WIDTH (3),
         .WINDOW_HEIGHT(1),
-        .BORDER_ENABLE(BORDER_ENABLE)
+        .BORDER_ENABLE(BORDER_ENABLE),
+        .WINDOW_WIDTH_CENTER_OFFSET(-1)
     ) i_t_gaussian_window_fetcher_h_b (
         .clk_i(clk_i),
         .rst_i(rst_i),
@@ -1806,8 +1855,8 @@ module first_scale_fp16 #(
 
     // unzip
     always_comb begin
-        for(int r = 0; r < 3; r++) begin
-            for(int c = 0; c < 3; c++) begin
+        for(int r = 0; r < 5; r++) begin
+            for(int c = 0; c < 5; c++) begin
                 v_wf_window_w[r][c] = v_w_wf_zip_window_w[r][c][(FP_WIDTH_REG * 2) - 1 : FP_WIDTH_REG];
                 w_wf_window_w[r][c] = v_w_wf_zip_window_w[r][c][FP_WIDTH_REG - 1 : 0];
             end

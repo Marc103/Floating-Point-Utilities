@@ -77,18 +77,22 @@ module zero_scale_fp16 #(
         box_v_kernel_w[1][0] = 16'h3800;
     end
 
-    logic [FP_WIDTH_REG - 1 : 0] upsampler_h_kernel_w [1][3];
+    logic [FP_WIDTH_REG - 1 : 0] upsampler_sh_h_kernel_w [1][4];
     always_comb begin
-        upsampler_h_kernel_w[0][0] = 16'h3800;
-        upsampler_h_kernel_w[0][1] = 16'h3c00;
-        upsampler_h_kernel_w[0][2] = 16'h3800;
+        upsampler_sh_h_kernel_w[0][0] = 16'h3400;
+        upsampler_sh_h_kernel_w[0][1] = 16'h3a00;
+        upsampler_sh_h_kernel_w[0][2] = 16'h3a00;
+        upsampler_sh_h_kernel_w[0][3] = 16'h3400;
+
     end
 
-    logic [FP_WIDTH_REG - 1 : 0] upsampler_v_kernel_w [3][1];
+    logic [FP_WIDTH_REG - 1 : 0] upsampler_sh_v_kernel_w [4][1];
     always_comb begin
-        upsampler_v_kernel_w[0][0] = 16'h3800;
-        upsampler_v_kernel_w[1][0] = 16'h3c00;
-        upsampler_v_kernel_w[2][0] = 16'h3800;
+        upsampler_sh_v_kernel_w[0][0] = 16'h3400;
+        upsampler_sh_v_kernel_w[1][0] = 16'h3a00;
+        upsampler_sh_v_kernel_w[2][0] = 16'h3a00;
+        upsampler_sh_v_kernel_w[3][0] = 16'h3400;
+
     end
 
     logic [FP_WIDTH_REG - 1 : 0] pass_3_3_kernel_w [3][3];
@@ -165,20 +169,20 @@ module zero_scale_fp16 #(
     //
     // downsampler vertical ia
     // zero inserter ia
-    // window fetcher ia - 1x3
-    // upsampler horizontal ia
+    // window fetcher ia - 1x4
+    // upsampler sh horizontal ia
     //
     // downsampler vertical iab
     // zero inserter iab
-    // window fetcher iab - 1x3
-    // upsampler horizontal iab
+    // window fetcher iab - 1x4
+    // upsampler sh horizontal iab
     //
     //--------------------------------------------
-    // window fetcher zipped data - 3x1
+    // window fetcher zipped data - 4x1
     //
-    // upsampler vertical ia
+    // upsampler sh vertical ia
     //
-    // upsampler vertical iab
+    // upsampler sh vertical iab
 
     logic [FP_WIDTH_REG - 1 : 0] i_a_wfh_window_w [1][5];
     logic [15:0]                 i_a_wfh_col_w;
@@ -546,7 +550,7 @@ module zero_scale_fp16 #(
         for(int c = 0; c < 2; c++) begin
             i_a_gaussian_wfv_window_w[c][0] = i_a_gaussian_zip_wfv_window_w[c][0][(FP_WIDTH_REG * 2) - 1 : FP_WIDTH_REG];
         end
-        i_a_gaussian_wfv_data_b_w = i_a_gaussian_zip_wfv_window_w[0][0];
+        i_a_gaussian_wfv_data_b_w = i_a_gaussian_zip_wfv_window_w[0][0][FP_WIDTH_REG - 1 : 0];
 
         i_a_gaussian_wfv_col_w   = i_a_gaussian_zip_wfv_col_w;
         i_a_gaussian_wfv_row_w   = i_a_gaussian_zip_wfv_row_w;
@@ -602,7 +606,7 @@ module zero_scale_fp16 #(
         .valid_o(i_a_gaussian_downsampled_z_valid_w)
     );
 
-    logic [FP_WIDTH_REG - 1 : 0] i_a_gaussian_downsampled_z_wfh_window_w [1][3];
+    logic [FP_WIDTH_REG - 1 : 0] i_a_gaussian_downsampled_z_wfh_window_w [1][4];
     logic [15:0]                 i_a_gaussian_downsampled_z_wfh_col_w;
     logic [15:0]                 i_a_gaussian_downsampled_z_wfh_row_w;
     logic                        i_a_gaussian_downsampled_z_wfh_valid_w;
@@ -611,9 +615,10 @@ module zero_scale_fp16 #(
         .DATA_WIDTH   (FP_WIDTH_REG),
         .IMAGE_WIDTH  (IMAGE_WIDTH),
         .IMAGE_HEIGHT (IMAGE_HEIGHT),
-        .WINDOW_WIDTH (3),
+        .WINDOW_WIDTH (4),
         .WINDOW_HEIGHT(1),
-        .BORDER_ENABLE(BORDER_ENABLE)
+        .BORDER_ENABLE(BORDER_ENABLE),
+        .WINDOW_WIDTH_CENTER_OFFSET(1)
     ) i_a_gaussian_downsampler_zero_fetcher_h (
         .clk_i(clk_i),
         .rst_i(rst_i),
@@ -634,12 +639,12 @@ module zero_scale_fp16 #(
     logic [15:0]                 i_a_gaussian_upsample_h_row_w;
     logic                        i_a_gaussian_upsample_h_valid_w;
 
-    upsampler_h_0_fp16 i_a_upsampler_h(
+    upsampler_sh_h_0_fp16 i_a_upsampler_h(
         .clk_i(clk_i),
         .rst_i(rst_i),
 
         .window_i(i_a_gaussian_downsampled_z_wfh_window_w),
-        .kernel_i(upsampler_h_kernel_w),
+        .kernel_i(upsampler_sh_h_kernel_w),
         .col_i   (i_a_gaussian_downsampled_z_wfh_col_w),
         .row_i   (i_a_gaussian_downsampled_z_wfh_row_w),
         .valid_i (i_a_gaussian_downsampled_z_wfh_valid_w),
@@ -709,9 +714,10 @@ module zero_scale_fp16 #(
         .DATA_WIDTH   (FP_WIDTH_REG),
         .IMAGE_WIDTH  (IMAGE_WIDTH),
         .IMAGE_HEIGHT (IMAGE_HEIGHT),
-        .WINDOW_WIDTH (3),
+        .WINDOW_WIDTH (4),
         .WINDOW_HEIGHT(1),
-        .BORDER_ENABLE(BORDER_ENABLE)
+        .BORDER_ENABLE(BORDER_ENABLE),
+        .WINDOW_WIDTH_CENTER_OFFSET(1)
     ) i_a_gaussian_downsampler_zero_fetcher_h_b (
         .clk_i(clk_i),
         .rst_i(rst_i),
@@ -735,7 +741,7 @@ module zero_scale_fp16 #(
     convolution_floating_point_z #(
         .EXP_WIDTH    (EXP_WIDTH),
         .FRAC_WIDTH   (FRAC_WIDTH),
-        .WINDOW_WIDTH (3),
+        .WINDOW_WIDTH (4),
         .WINDOW_HEIGHT(1)
     ) i_a_upsampler_h_b (
         .clk_i(clk_i),
@@ -764,12 +770,12 @@ module zero_scale_fp16 #(
     assign i_a_gaussian_upsample_h_zip_row_w   = i_a_gaussian_upsample_h_row_w;
     assign i_a_gaussian_upsample_h_zip_valid_w = i_a_gaussian_upsample_h_valid_w;
 
-    logic [(FP_WIDTH_REG * 2) - 1 : 0] i_a_gaussian_downsampled_z_zip_wfv_window_w [3][1];
+    logic [(FP_WIDTH_REG * 2) - 1 : 0] i_a_gaussian_downsampled_z_zip_wfv_window_w [4][1];
     logic [15:0]                       i_a_gaussian_downsampled_z_zip_wfv_col_w;
     logic [15:0]                       i_a_gaussian_downsampled_z_zip_wfv_row_w;
     logic                              i_a_gaussian_downsampled_z_zip_wfv_valid_w;
 
-    logic [FP_WIDTH_REG - 1 : 0] i_a_gaussian_downsampled_z_wfv_window_w [3][1];
+    logic [FP_WIDTH_REG - 1 : 0] i_a_gaussian_downsampled_z_wfv_window_w [4][1];
     logic [15:0]                 i_a_gaussian_downsampled_z_wfv_col_w;
     logic [15:0]                 i_a_gaussian_downsampled_z_wfv_row_w;
     logic                        i_a_gaussian_downsampled_z_wfv_valid_w;
@@ -784,8 +790,9 @@ module zero_scale_fp16 #(
         .IMAGE_WIDTH  (IMAGE_WIDTH),
         .IMAGE_HEIGHT (IMAGE_HEIGHT),
         .WINDOW_WIDTH (1),
-        .WINDOW_HEIGHT(3),
-        .BORDER_ENABLE(BORDER_ENABLE)
+        .WINDOW_HEIGHT(4),
+        .BORDER_ENABLE(BORDER_ENABLE),
+        .WINDOW_HEIGHT_CENTER_OFFSET(1)
     ) i_a_gaussian_downsampler_zero_zip_window_fetcher_v (
         .clk_i(clk_i),
         .rst_i(rst_i),
@@ -803,10 +810,10 @@ module zero_scale_fp16 #(
 
     // unzip
     always_comb begin
-        for(int c = 0; c < 3; c++) begin
-            i_a_gaussian_downsampled_z_wfv_window_w[c][0] = i_a_gaussian_downsampled_z_zip_wfv_window_w[c][0][(FP_WIDTH_REG * 2) - 1 : 0];
+        for(int c = 0; c < 4; c++) begin
+            i_a_gaussian_downsampled_z_wfv_window_w[c][0] = i_a_gaussian_downsampled_z_zip_wfv_window_w[c][0][(FP_WIDTH_REG * 2) - 1 : FP_WIDTH_REG];
         end
-        i_a_gaussian_downsampled_z_wfv_data_b_w = i_a_gaussian_downsampled_z_zip_wfv_window_w[1][0][FP_WIDTH_REG - 1 : 0];
+        i_a_gaussian_downsampled_z_wfv_data_b_w = i_a_gaussian_downsampled_z_zip_wfv_window_w[2][0][FP_WIDTH_REG - 1 : 0];
 
         i_a_gaussian_downsampled_z_wfv_col_w     = i_a_gaussian_downsampled_z_zip_wfv_col_w;
         i_a_gaussian_downsampled_z_wfv_row_w     = i_a_gaussian_downsampled_z_zip_wfv_row_w;
@@ -823,12 +830,12 @@ module zero_scale_fp16 #(
     logic [15:0]                 i_a_gaussian_upsampled_row_w;
     logic                        i_a_gaussian_upsampled_valid_w;
 
-    upsampler_v_0_fp16 i_a_gaussian_upsampler_v (
+    upsampler_sh_v_0_fp16 i_a_gaussian_upsampler_v (
         .clk_i(clk_i),
         .rst_i(rst_i),
 
         .window_i(i_a_gaussian_downsampled_z_wfv_window_w),
-        .kernel_i(upsampler_v_kernel_w),
+        .kernel_i(upsampler_sh_v_kernel_w),
         .col_i   (i_a_gaussian_downsampled_z_wfv_col_w),
         .row_i   (i_a_gaussian_downsampled_z_wfv_row_w),
         .valid_i (i_a_gaussian_downsampled_z_wfv_valid_w),
@@ -848,7 +855,7 @@ module zero_scale_fp16 #(
         .EXP_WIDTH    (EXP_WIDTH),
         .FRAC_WIDTH   (FRAC_WIDTH),
         .WINDOW_WIDTH (1),
-        .WINDOW_HEIGHT(3)
+        .WINDOW_HEIGHT(4)
     ) i_a_gaussian_upsampler_v_b (
         .clk_i(clk_i),
         .rst_i(rst_i),
@@ -895,10 +902,10 @@ module zero_scale_fp16 #(
     //
     // downsampler vertical itb
     // zero inserter itb
-    // window fetcher itb - 1x3
-    // upsampler horizontal itb
-    // window fetcher itb - 3x1
-    // upsampler vertical itb
+    // window fetcher itb - 1x4
+    // upsampler sh horizontal itb
+    // window fetcher itb - 4x1
+    // upsampler sh vertical itb
 
     logic [FP_WIDTH_REG - 1 : 0] i_t_wfh_window_w [1][5];
     logic [15:0]                 i_t_wfh_col_w;
@@ -1356,9 +1363,10 @@ module zero_scale_fp16 #(
         .DATA_WIDTH   (FP_WIDTH_REG),
         .IMAGE_WIDTH  (IMAGE_WIDTH),
         .IMAGE_HEIGHT (IMAGE_HEIGHT),
-        .WINDOW_WIDTH (3),
+        .WINDOW_WIDTH (4),
         .WINDOW_HEIGHT(1),
-        .BORDER_ENABLE(BORDER_ENABLE)
+        .BORDER_ENABLE(BORDER_ENABLE),
+        .WINDOW_WIDTH_CENTER_OFFSET(1)
     ) i_t_gaussian_downsampler_zero_fetcher_h_b (
         .clk_i(clk_i),
         .rst_i(rst_i),
@@ -1382,7 +1390,7 @@ module zero_scale_fp16 #(
     convolution_floating_point_z #(
         .EXP_WIDTH    (EXP_WIDTH),
         .FRAC_WIDTH   (FRAC_WIDTH),
-        .WINDOW_WIDTH (3),
+        .WINDOW_WIDTH (4),
         .WINDOW_HEIGHT(1)
     ) i_t_upsampler_h_b (
         .clk_i(clk_i),
@@ -1409,8 +1417,9 @@ module zero_scale_fp16 #(
         .IMAGE_WIDTH  (IMAGE_WIDTH),
         .IMAGE_HEIGHT (IMAGE_HEIGHT),
         .WINDOW_WIDTH (1),
-        .WINDOW_HEIGHT(3),
-        .BORDER_ENABLE(BORDER_ENABLE)
+        .WINDOW_HEIGHT(4),
+        .BORDER_ENABLE(BORDER_ENABLE),
+        .WINDOW_HEIGHT_CENTER_OFFSET(1)
     ) i_t_gaussian_downsampler_zero_fetcher_v_b (
         .clk_i(clk_i),
         .rst_i(rst_i),
@@ -1435,7 +1444,7 @@ module zero_scale_fp16 #(
         .EXP_WIDTH    (EXP_WIDTH),
         .FRAC_WIDTH   (FRAC_WIDTH),
         .WINDOW_WIDTH (1),
-        .WINDOW_HEIGHT(3)
+        .WINDOW_HEIGHT(4)
     ) i_t_gaussian_upsampler_v_b (
         .clk_i(clk_i),
         .rst_i(rst_i),
@@ -2095,7 +2104,6 @@ module zero_scale_fp16 #(
     assign row_o    = DX_DY_ENABLE != 0 ? v_added_row_w  : v_pass_row_weighted_w;
     assign valid_o  = DX_DY_ENABLE != 0 ? v_added_valid_w: v_pass_valid_weighted_w;
     
-
     ////////////////////////////////////////////////////////////////
     // Assigning i_a and i_t downsampled outputs
     assign i_a_downsample_o   = i_a_gaussian_downsampled_data_w;

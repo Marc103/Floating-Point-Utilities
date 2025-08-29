@@ -132,4 +132,23 @@ class Image #(
         $display();
     endfunction
 
+    function void generate_middle_square_image(int length, int background_constant, int square_constant);
+        int i = 0;
+        int width_start = (IMAGE_WIDTH - length) / 2;
+        int width_end   = width_start + length;
+        int height_start = (IMAGE_HEIGHT - length) / 2;
+        int height_end  = height_start + length;
+
+        for(int r = 0; r < IMAGE_HEIGHT; r++) begin
+            for(int c = 0; c < IMAGE_WIDTH; c++) begin
+                if((r >= height_start) && (r < height_end) && (c >= width_start) && (c < width_end)) begin
+                    this.image[r][c] = square_constant;
+                end else begin
+                    this.image[r][c] = background_constant;
+                end
+                
+            end
+        end
+    endfunction 
+
 endclass

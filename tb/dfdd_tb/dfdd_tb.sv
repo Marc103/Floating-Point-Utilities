@@ -72,6 +72,8 @@ import scoreboards_pkg::*;
 `include "zero_inserter.sv"
 `include "zero_scale_fp16.sv"
 `include "dual_scale_wrapper_fp16.sv"
+`include "upsampler_sh_h_0_fp16.sv"
+`include "upsampler_sh_v_0_fp16.sv"
 
 ////////////////////////////////////////////////////////////////
 // timescale 
@@ -80,8 +82,8 @@ module dfdd_tb();
 
     ////////////////////////////////////////////////////////////////
     // localparams
-    localparam IMAGE_WIDTH  = 512;
-    localparam IMAGE_HEIGHT = 400;
+    localparam IMAGE_WIDTH  = 32;
+    localparam IMAGE_HEIGHT = 32;
 
     localparam EXP_WIDTH = 5;
     localparam FRAC_WIDTH = 10;
@@ -127,15 +129,16 @@ module dfdd_tb();
     logic [15:0] a [2];
     logic [15:0] b [2];
 
-    assign w = '{'{16'h34d6,16'h361e,16'h3818},
-                 '{16'h3d72,16'h3e22,16'h3e6c}};
+    //assign w = '{'{16'h2c56,16'h2c16,16'h2d76},
+    //             '{16'h3494,16'h33ea,16'h33fd}};
 
-    //assign w = '{'{16'h34d6,16'h0000,16'h0000},
-    //             '{16'h3d72,16'h3e22,16'h3e6c}};
-    assign w_t = 16'h45b2;
-    assign a = '{16'h3ff2,16'h3cc2};
-    //assign a = '{16'h3c00,16'h3cc2};
-    assign b = '{16'h4385, 16'h41d4};
+    assign w = '{'{16'h3c00,16'h0000,16'h0000},
+                 '{16'h4400,16'h4500,16'h4600}};
+    assign w_t = 16'h3c00;
+    //assign w_t = 16'h4d40;
+    //assign a = '{16'h3c7c,16'h3e09};
+    assign a = '{16'h3c00,16'h3cc2};
+    assign b = '{16'h454d, 16'h4129};
 
     logic [15:0] fp16_in_0;
     logic [15:0] fp16_in_1;
@@ -168,7 +171,7 @@ module dfdd_tb();
         .IMAGE_WIDTH(IMAGE_WIDTH),
         .IMAGE_HEIGHT(IMAGE_HEIGHT),
         .DX_DY_ENABLE(1),
-        .BORDER_ENABLE(1)
+        .BORDER_ENABLE(0)
     ) dual_scale (
         .clk_i(clk),
         .rst_i(rst),
@@ -219,8 +222,8 @@ module dfdd_tb();
 
         ////////////////////////////////////////////////////////////////
         // Set up dump 
-        //$dumpfile("waves.vcd");
-        //$dumpvars(0, dfdd_tb);
+        $dumpfile("waves.vcd");
+        $dumpvars(0, dfdd_tb);
 
         ////////////////////////////////////////////////////////////////
         // Reset logic

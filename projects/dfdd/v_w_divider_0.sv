@@ -55,16 +55,16 @@ module v_w_divider_0 #(
         .valid_o(valid_o)
     );
 
-    floating_point_divider #(
+    floating_point_divider_z #(
         .EXP_WIDTH(EXP_WIDTH),
         .FRAC_WIDTH(FRAC_WIDTH)
-    ) c_w_t_divider (
+    ) confidence_delay (
         .clk_i(clk_i),
         .rst_i(rst_i),
-        .fp_a_i (c_i),
-        .fp_b_i (w_t_i),
-        .fp_o   (c_o)
+        .fp_a_i(c_i),
+        .fp_o  (c_o)
     );
+    
     /*
     * *** READ ***
     * this really needs to be rewritten, currently

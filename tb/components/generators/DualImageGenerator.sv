@@ -23,8 +23,8 @@ class DualImageGenerator #(type T_0, type T_1);
             img_1 = new();
             case(seq)
                 0: begin
-                    img_0.file_path = "../test_images/capture_22_camera0.ppm";
-                    img_1.file_path = "../test_images/capture_22_camera1.ppm";
+                    img_0.file_path = "../test_images/capture_36_camera1.ppm";
+                    img_1.file_path = "../test_images/capture_36_camera0.ppm";
                 end
                 1: begin
                     img_0.file_path = "../test_images/rho_plus_0.ppm";
@@ -40,8 +40,10 @@ class DualImageGenerator #(type T_0, type T_1);
                 end
             endcase
             seq++;
-            img_0.generate_image_from_ppm();
-            img_1.generate_image_from_ppm();
+            //img_0.generate_image_from_ppm();
+            //img_1.generate_image_from_ppm();
+            img_0.generate_middle_square_image(20, 0, 255);
+            img_1.generate_constant_image(0);
             out_broadcaster_0.push(img_0);
             out_broadcaster_1.push(img_1);
         end
