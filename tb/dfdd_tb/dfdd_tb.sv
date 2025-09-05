@@ -74,6 +74,14 @@ import scoreboards_pkg::*;
 `include "dual_scale_wrapper_fp16.sv"
 `include "upsampler_sh_h_0_fp16.sv"
 `include "upsampler_sh_v_0_fp16.sv"
+`include "upsampler_sh_h_1_fp16.sv"
+`include "upsampler_sh_v_1_fp16.sv"
+`include "uint8_12_to_fp16_converter.sv"
+`include "custom_box_h_3_uint8_to_uint10.sv"
+`include "custom_box_v_3_uint10_to_uint12.sv"
+`include "custom_burt_h_uint12_to_uint16.sv"
+`include "custom_burt_v_uint16_to_uint20.sv"
+`include "preprocessor_hybrid_uint8_to_fp16.sv"
 
 ////////////////////////////////////////////////////////////////
 // timescale 
@@ -82,8 +90,8 @@ module dfdd_tb();
 
     ////////////////////////////////////////////////////////////////
     // localparams
-    localparam IMAGE_WIDTH  = 32;
-    localparam IMAGE_HEIGHT = 32;
+    localparam IMAGE_WIDTH  = 512;
+    localparam IMAGE_HEIGHT = 400;
 
     localparam EXP_WIDTH = 5;
     localparam FRAC_WIDTH = 10;
@@ -129,16 +137,23 @@ module dfdd_tb();
     logic [15:0] a [2];
     logic [15:0] b [2];
 
-    //assign w = '{'{16'h2c56,16'h2c16,16'h2d76},
-    //             '{16'h3494,16'h33ea,16'h33fd}};
-
-    assign w = '{'{16'h3c00,16'h0000,16'h0000},
-                 '{16'h4400,16'h4500,16'h4600}};
-    assign w_t = 16'h3c00;
-    //assign w_t = 16'h4d40;
-    //assign a = '{16'h3c7c,16'h3e09};
-    assign a = '{16'h3c00,16'h3cc2};
+    assign w = '{'{16'h2c56,16'h2c16,16'h2d76},
+                 '{16'h3494,16'h33ea,16'h33fd}};
+    assign a = '{16'h3c7c,16'h3e09};
     assign b = '{16'h454d, 16'h4129};
+
+    //assign b = '{16'h2f52,16'h3694};
+    //assign a = '{16'h3eac, 16'h3b95};
+
+    //assign a = '{16'h3c00,16'h3c00};
+    //assign b = '{16'h3c00, 16'h3c00};
+
+    
+    
+
+
+    //assign a = '{16'h3c7c,16'h3e09};
+    //assign b = '{16'h454d, 16'h4129};
 
     logic [15:0] fp16_in_0;
     logic [15:0] fp16_in_1;
@@ -151,6 +166,7 @@ module dfdd_tb();
         row_in <= bfm.row_i;
     end
 
+    /*
     uint8_fp16_converter img_0_uint8_fp16_converter (
         .clk_i(clk),
         .rst_i(rst),
@@ -166,6 +182,7 @@ module dfdd_tb();
         .uint8_i(bfm.i_rho_minus_uint8_i),
         .fp16_o (bfm.i_rho_minus_i)
     );
+    */
 
     dual_scale_wrapper_fp16 #(
         .IMAGE_WIDTH(IMAGE_WIDTH),
@@ -176,11 +193,11 @@ module dfdd_tb();
         .clk_i(clk),
         .rst_i(rst),
 
-        .i_rho_plus_i (bfm.i_rho_plus_i),
-        .i_rho_minus_i(bfm.i_rho_minus_i),
-        .col_i        (col_in),
-        .row_i        (row_in),
-        .valid_i      (valid_in),
+        .i_rho_plus_uint8_i (bfm.i_rho_plus_uint8_i),
+        .i_rho_minus_uint8_i(bfm.i_rho_minus_uint8_i),
+        .col_i        (bfm.col_i),
+        .row_i        (bfm.row_i),
+        .valid_i      (bfm.valid_i),
 
         .w_i  (w),
         .w_t_i(w_t),
@@ -222,8 +239,8 @@ module dfdd_tb();
 
         ////////////////////////////////////////////////////////////////
         // Set up dump 
-        $dumpfile("waves.vcd");
-        $dumpvars(0, dfdd_tb);
+        //$dumpfile("waves.vcd");
+        //$dumpvars(0, dfdd_tb);
 
         ////////////////////////////////////////////////////////////////
         // Reset logic

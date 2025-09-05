@@ -36,9 +36,13 @@
     logic [FP_WIDTH_REG - 1 : 0] fp_a_reg [2];
     logic                        valid_reg[2];
 
-    logic                      fp_a_sign;
-    logic [EXP_WIDTH - 1 : 0]  fp_a_exp;
-    logic [FRAC_WIDTH - 1 : 0] fp_a_frac;
+    logic                             fp_a_sign;
+    logic        [EXP_WIDTH - 1 : 0]  fp_a_exp;
+    logic signed [EXP_WIDTH  : 0]     fp_exp_result;
+    logic        [FRAC_WIDTH - 1 : 0] fp_a_frac;
+
+    logic signed [EXP_WIDTH : 0] EXPONENT_SEXT;
+    assign EXPONENT_SEXT = {EXPONENT[EXP_WIDTH - 1], EXPONENT[EXP_WIDTH - 1 : 0]};
     
     logic [FP_WIDTH_REG - 1 : 0] fp_a_result;
 
@@ -48,9 +52,19 @@
         fp_a_frac = fp_a_reg[0][FRAC_IDX_MSB : FRAC_IDX_LSB];
 
         fp_a_sign = fp_a_sign ^ SIGN[0]; 
-        if((fp_a_exp != 0) && (fp_a_exp != EXP_MAX)) begin
-            fp_a_exp = fp_a_exp + EXPONENT[EXP_WIDTH - 1 : 0];
+
+        fp_exp_result = {1'b0, fp_a_exp};
+        fp_exp_result = fp_exp_result + EXPONENT_SEXT;
+        
+        // safe guard against wrap around issue
+        if(fp_exp_result <= 0) begin
+            fp_a_exp = 0;
+        end else if(fp_exp_result >= EXP_MAX) begin
+            fp_a_exp = EXP_MAX;
+        end else begin
+            fp_a_exp = fp_exp_result[EXP_WIDTH - 1 : 0];
         end
+
 
         if(BY_ZERO) begin
             fp_a_exp = 0;

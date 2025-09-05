@@ -14,8 +14,8 @@ module dual_scale_wrapper_fp16 #(
     input clk_i,
     input rst_i,
 
-    input  [FP_WIDTH_REG - 1 : 0] i_rho_plus_i,
-    input  [FP_WIDTH_REG - 1 : 0] i_rho_minus_i,
+    input  [7:0] i_rho_plus_uint8_i,
+    input  [7:0] i_rho_minus_uint8_i,
     input  [15:0]                 col_i,
     input  [15:0]                 row_i,
     input                         valid_i,
@@ -38,7 +38,7 @@ module dual_scale_wrapper_fp16 #(
     logic [15:0]                 i_a_row_w;
     logic                        i_a_valid_w;
 
-    preprocessing_fp16  #(
+    preprocessing_hybrid_uint8_to_fp16  #(
         .IMAGE_WIDTH(IMAGE_WIDTH),
         .IMAGE_HEIGHT(IMAGE_HEIGHT),
         .BORDER_ENABLE(BORDER_ENABLE)
@@ -46,8 +46,8 @@ module dual_scale_wrapper_fp16 #(
         .clk_i(clk_i),
         .rst_i(rst_i),
 
-        .i_rho_plus_i (i_rho_plus_i),
-        .i_rho_minus_i(i_rho_minus_i),
+        .i_rho_plus_i (i_rho_plus_uint8_i),
+        .i_rho_minus_i(i_rho_minus_uint8_i),
         .col_i        (col_i),
         .row_i        (row_i),
         .valid_i      (valid_i),
@@ -57,7 +57,6 @@ module dual_scale_wrapper_fp16 #(
         .col_o  (i_a_col_w),
         .row_o  (i_a_row_w),
         .valid_o(i_a_valid_w)
-
     );
 
     logic [FP_WIDTH_REG - 1 : 0] v_0_data_w;
@@ -81,17 +80,11 @@ module dual_scale_wrapper_fp16 #(
         .clk_i(clk_i),
         .rst_i(rst_i),
 
-        //.i_a_i  (i_a_data_w),
-        //.i_t_i  (i_t_data_w),
-        //.col_i  (i_a_col_w),
-        //.row_i  (i_a_row_w),
-        //.valid_i(i_a_valid_w),
-
-        .i_a_i  (i_rho_plus_i),
-        .i_t_i  (i_rho_minus_i),
-        .col_i  (col_i),
-        .row_i  (row_i),
-        .valid_i(valid_i),
+        .i_a_i  (i_a_data_w),
+        .i_t_i  (i_t_data_w),
+        .col_i  (i_a_col_w),
+        .row_i  (i_a_row_w),
+        .valid_i(i_a_valid_w),
 
         .w_i(w_i[0]),
         .a_i(a_i[0]),
@@ -103,17 +96,17 @@ module dual_scale_wrapper_fp16 #(
         .row_downsample_o  (i_a_0_downsample_row_w),
         .valid_downsample_o(i_a_0_downsample_valid_w),
 
-        //.v_o    (v_0_data_w),
-        //.w_o    (w_0_data_w),
-        //.col_o  (v_0_col_w),
-        //.row_o  (v_0_row_w),
-        //.valid_o(v_0_valid_w)
+        .v_o    (v_0_data_w),
+        .w_o    (w_0_data_w),
+        .col_o  (v_0_col_w),
+        .row_o  (v_0_row_w),
+        .valid_o(v_0_valid_w)
 
-        .v_o    (z_o),
-        .w_o    (c_o),
-        .col_o  (col_o),
-        .row_o  (row_o),
-        .valid_o(valid_o)
+        //.v_o    (z_o),
+        //.w_o    (c_o),
+        //.col_o  (col_o),
+        //.row_o  (row_o),
+        //.valid_o(valid_o)
     );
 
     logic [FP_WIDTH_REG - 1 : 0] v_1_data_w;
@@ -146,6 +139,13 @@ module dual_scale_wrapper_fp16 #(
         .col_o  (v_1_col_w),
         .row_o  (v_1_row_w),
         .valid_o(v_1_valid_w)
+
+        //.v_o    (z_o),
+        //.w_o    (c_o),
+        //.col_o  (col_o),
+        //.row_o  (row_o),
+        //.valid_o(valid_o)
+
     );
 
     logic [FP_WIDTH_REG - 1 : 0] v_bundle_data_w     [2];
@@ -408,6 +408,12 @@ module dual_scale_wrapper_fp16 #(
         .valid_o(w_added_box_valid_w)
     );
 
+    //assign z_o = v_added_box_data_w;
+    //assign c_o = w_added_box_data_w;
+    //assign col_o = v_added_box_col_w;
+    //assign row_o = v_added_box_row_w;
+    //assign valid_o = v_added_box_valid_w;
+
     v_w_divider_0 #(
         .EXP_WIDTH(EXP_WIDTH),
         .FRAC_WIDTH(FRAC_WIDTH)
@@ -420,13 +426,13 @@ module dual_scale_wrapper_fp16 #(
         .w_t_i  (w_t_i),
         .col_i  (v_added_box_col_w),
         .row_i  (v_added_box_row_w),
-        .valid_i(v_added_box_valid_w)
+        .valid_i(v_added_box_valid_w),
 
-        //.z_o    (z_o),
-        //.c_o    (c_o),
-        //.col_o  (col_o),
-        //.row_o  (row_o),
-        //.valid_o(valid_o)
+        .z_o    (z_o),
+        .c_o    (c_o),
+        .col_o  (col_o),
+        .row_o  (row_o),
+        .valid_o(valid_o)
     );
 
 endmodule

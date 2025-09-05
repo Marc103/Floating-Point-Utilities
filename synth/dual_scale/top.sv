@@ -456,8 +456,8 @@ module top #(
         .clk_i(core_clk),
         .rst_i(sys_reset),
 
-        .i_rho_plus_i (fp16_in_0),
-        .i_rho_minus_i(fp16_in_1),
+        .i_rho_plus_uint8_i (fp16_in_0),
+        .i_rho_minus_uint8_i(fp16_in_1),
         .col_i        (col_in_0),
         .row_i        (row_in_0),
         .valid_i      (valid_in_0),

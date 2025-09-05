@@ -51,18 +51,6 @@
  *
  */
 
-// Select Greater Magnitude (SGM) - stage 1
-/* We have to identify the greater magnitude value by looking
- * at the exponent (sign doesn't matter) and reorder. We also
- * calculate the difference of the exponents and pass that down.
- * If the exponent == 0 then lead bit is 0 and the exponent is
- * set to 1. This is the value that should be used to calculate
- * the exponent difference. Output in total form.
- * [ == 0] [ == 0] - EXP_WIDTH
- * [ < ] - EXP_WIDTH
- * [ - ] - EXP_WIDTH
- */
-
 module floating_point_adder #(
     parameter EXP_WIDTH  = 0,
     parameter FRAC_WIDTH = 0,
@@ -247,6 +235,18 @@ module floating_point_adder #(
     assign fp_o    = rr_o_fp_w;
     assign valid_o = rr_o_valid_w;
 endmodule
+
+// Select Greater Magnitude (SGM) - stage 1
+/* We have to identify the greater magnitude value by looking
+ * at the exponent (sign doesn't matter) and reorder. We also
+ * calculate the difference of the exponents and pass that down.
+ * If the exponent == 0 then lead bit is 0 and the exponent is
+ * set to 1. This is the value that should be used to calculate
+ * the exponent difference. Output in total form.
+ * [ == 0] [ == 0] - EXP_WIDTH
+ * [ < ] - EXP_WIDTH
+ * [ - ] - EXP_WIDTH
+ */
 
 module sgm #(
     parameter EXP_WIDTH = 0,

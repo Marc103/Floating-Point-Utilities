@@ -1821,12 +1821,23 @@ module zero_scale_fp16 #(
     logic [FP_WIDTH_REG - 1 : 0] w_dx_data_w;
     logic [FP_WIDTH_REG - 1 : 0] w_dy_data_w;
 
+    logic [FP_WIDTH_REG - 1 : 0] v_pass_pre_data_w;
+    logic [FP_WIDTH_REG - 1 : 0] v_dx_pre_data_w;
+    logic [FP_WIDTH_REG - 1 : 0] v_dy_pre_data_w;
+    logic [15:0]                 v_pass_pre_col_w;
+    logic [15:0]                 v_pass_pre_row_w;
+    logic [15:0]                 v_pass_pre_valid_w;
+
     logic [FP_WIDTH_REG - 1 : 0] v_pass_data_weighted_w;
     logic [FP_WIDTH_REG - 1 : 0] v_dx_data_weighted_w;
     logic [FP_WIDTH_REG - 1 : 0] v_dy_data_weighted_w;
     logic [15:0]                 v_pass_col_weighted_w;
     logic [15:0]                 v_pass_row_weighted_w;
     logic                        v_pass_valid_weighted_w;
+
+    logic [FP_WIDTH_REG - 1 : 0] w_pass_pre_data_w;
+    logic [FP_WIDTH_REG - 1 : 0] w_dx_pre_data_w;
+    logic [FP_WIDTH_REG - 1 : 0] w_dy_pre_data_w;
 
     logic [FP_WIDTH_REG - 1 : 0] w_pass_data_weighted_w;
     logic [FP_WIDTH_REG - 1 : 0] w_dx_data_weighted_w;
@@ -1933,13 +1944,72 @@ module zero_scale_fp16 #(
             );
 
             // ----- V weighted (and row col delay) -------
+
+            // first multiplied by respective W derivatives
+            floating_point_multiplier #(
+                .EXP_WIDTH (EXP_WIDTH),
+                .FRAC_WIDTH(FRAC_WIDTH)
+            ) v_pass_pre_weighted (
+                .clk_i(clk_i),
+                .rst_i(rst_i),
+                .fp_a_i (v_pass_data_w),
+                .fp_b_i (w_pass_data_w),
+                .valid_i(v_pass_valid_w),
+                .fp_o   (v_pass_pre_data_w),
+                .valid_o(v_pass_pre_valid_w)
+            );
+
+            floating_point_multiplier #(
+                .EXP_WIDTH (EXP_WIDTH),
+                .FRAC_WIDTH(FRAC_WIDTH)
+            ) v_dx_pre_weighted (
+                .clk_i(clk_i),
+                .rst_i(rst_i),
+                .fp_a_i (v_dx_data_w),
+                .fp_b_i (w_dx_data_w),
+                .fp_o   (v_dx_pre_data_w)
+            );
+
+            floating_point_multiplier #(
+                .EXP_WIDTH (EXP_WIDTH),
+                .FRAC_WIDTH(FRAC_WIDTH)
+            ) v_dy_pre_weighted (
+                .clk_i(clk_i),
+                .rst_i(rst_i),
+                .fp_a_i (v_dy_data_w),
+                .fp_b_i (w_dy_data_w),
+                .fp_o   (v_dy_pre_data_w)
+            );
+
+            floating_point_multiplier_z #(
+                .EXP_WIDTH(0),
+                .FRAC_WIDTH(15)
+            ) v_pass_pre_col_w_delay (
+                .clk_i(clk_i),
+                .rst_i(rst_i),
+                .fp_a_i(v_pass_col_w),
+                .fp_o  (v_pass_pre_col_w)
+            );
+
+            floating_point_multiplier_z #(
+                .EXP_WIDTH(0),
+                .FRAC_WIDTH(15)
+            ) v_pass_pre_row_w_delay (
+                .clk_i(clk_i),
+                .rst_i(rst_i),
+                .fp_a_i(v_pass_row_w),
+                .fp_o  (v_pass_pre_row_w)
+            );
+
+            // then by respective omega weights
+            
             floating_point_multiplier #(
                 .EXP_WIDTH (EXP_WIDTH),
                 .FRAC_WIDTH(FRAC_WIDTH)
             ) v_pass_weighted (
                 .clk_i(clk_i),
                 .rst_i(rst_i),
-                .fp_a_i (v_pass_data_w),
+                .fp_a_i (v_pass_pre_data_w),
                 .fp_b_i (w_i[0]),
                 .valid_i(v_pass_valid_w),
                 .fp_o   (v_pass_data_weighted_w),
@@ -1952,7 +2022,7 @@ module zero_scale_fp16 #(
             ) v_dx_weighted (
                 .clk_i(clk_i),
                 .rst_i(rst_i),
-                .fp_a_i (v_dx_data_w),
+                .fp_a_i (v_dx_pre_data_w),
                 .fp_b_i (w_i[1]),
                 .fp_o   (v_dx_data_weighted_w)
             );
@@ -1963,7 +2033,7 @@ module zero_scale_fp16 #(
             ) v_dy_weighted (
                 .clk_i(clk_i),
                 .rst_i(rst_i),
-                .fp_a_i (v_dy_data_w),
+                .fp_a_i (v_dy_pre_data_w),
                 .fp_b_i (w_i[2]),
                 .fp_o   (v_dy_data_weighted_w)
             );
@@ -1974,7 +2044,7 @@ module zero_scale_fp16 #(
             ) v_pass_col_w_delay (
                 .clk_i(clk_i),
                 .rst_i(rst_i),
-                .fp_a_i(v_pass_col_w),
+                .fp_a_i(v_pass_pre_col_w),
                 .fp_o  (v_pass_col_weighted_w)
             );
 
@@ -1984,18 +2054,55 @@ module zero_scale_fp16 #(
             ) v_pass_row_w_delay (
                 .clk_i(clk_i),
                 .rst_i(rst_i),
-                .fp_a_i(v_pass_row_w),
+                .fp_a_i(v_pass_pre_row_w),
                 .fp_o  (v_pass_row_weighted_w)
             );
 
             // ----- W weighted -------
+
+            // first square
+            floating_point_multiplier #(
+                .EXP_WIDTH (EXP_WIDTH),
+                .FRAC_WIDTH(FRAC_WIDTH)
+            ) w_pass_pre_weighted (
+                .clk_i(clk_i),
+                .rst_i(rst_i),
+                .fp_a_i (w_pass_data_w),
+                .fp_b_i (w_pass_data_w),
+                .fp_o   (w_pass_pre_data_w)
+            );
+
+            floating_point_multiplier #(
+                .EXP_WIDTH (EXP_WIDTH),
+                .FRAC_WIDTH(FRAC_WIDTH)
+            ) w_dx_pre_weighted (
+                .clk_i(clk_i),
+                .rst_i(rst_i),
+                .fp_a_i (w_dx_data_w),
+                .fp_b_i (w_dx_data_w),
+                .fp_o   (w_dx_pre_data_w)
+            );
+
+            floating_point_multiplier #(
+                .EXP_WIDTH (EXP_WIDTH),
+                .FRAC_WIDTH(FRAC_WIDTH)
+            ) w_dy_pre_weighted (
+                .clk_i(clk_i),
+                .rst_i(rst_i),
+                .fp_a_i (w_dy_data_w),
+                .fp_b_i (w_dy_data_w),
+                .fp_o   (w_dy_pre_data_w)
+            );
+
+
+            // then by respective omega weights
             floating_point_multiplier #(
                 .EXP_WIDTH (EXP_WIDTH),
                 .FRAC_WIDTH(FRAC_WIDTH)
             ) w_pass_weighted (
                 .clk_i(clk_i),
                 .rst_i(rst_i),
-                .fp_a_i (w_pass_data_w),
+                .fp_a_i (w_pass_pre_data_w),
                 .fp_b_i (w_i[0]),
                 .fp_o   (w_pass_data_weighted_w)
             );
@@ -2006,7 +2113,7 @@ module zero_scale_fp16 #(
             ) w_dx_weighted (
                 .clk_i(clk_i),
                 .rst_i(rst_i),
-                .fp_a_i (w_dx_data_w),
+                .fp_a_i (w_dx_pre_data_w),
                 .fp_b_i (w_i[1]),
                 .fp_o   (w_dx_data_weighted_w)
             );
@@ -2017,7 +2124,7 @@ module zero_scale_fp16 #(
             ) w_dy_weighted (
                 .clk_i(clk_i),
                 .rst_i(rst_i),
-                .fp_a_i (w_dy_data_w),
+                .fp_a_i (w_dy_pre_data_w),
                 .fp_b_i (w_i[2]),
                 .fp_o   (w_dy_data_weighted_w)
             );
@@ -2048,16 +2155,52 @@ module zero_scale_fp16 #(
                 .data_o  (w_added_data_w)
             );
         end else begin
-             // ----- V weighted (and row col delay) -------
+            // ----- V weighted (and row col delay) -------
+
+            // multiply by W pass
+            floating_point_multiplier #(
+                .EXP_WIDTH (EXP_WIDTH),
+                .FRAC_WIDTH(FRAC_WIDTH)
+            ) v_pass_pre_weighted (
+                .clk_i(clk_i),
+                .rst_i(rst_i),
+                .fp_a_i (v_data_w[2]),
+                .fp_b_i (w_data_w),
+                .valid_i(v_valid_w[2]),
+                .fp_o   (v_pass_pre_data_w),
+                .valid_o(v_pass_pre_valid_w)
+            );
+
+            floating_point_multiplier_z #(
+                .EXP_WIDTH(0),
+                .FRAC_WIDTH(15)
+            ) v_pass_pre_col_w_delay (
+                .clk_i(clk_i),
+                .rst_i(rst_i),
+                .fp_a_i(v_col_w[2]),
+                .fp_o  (v_pass_pre_col_w)
+            );
+
+            floating_point_multiplier_z #(
+                .EXP_WIDTH(0),
+                .FRAC_WIDTH(15)
+            ) v_pass_pre_row_w_delay (
+                .clk_i(clk_i),
+                .rst_i(rst_i),
+                .fp_a_i(v_row_w[2]),
+                .fp_o  (v_pass_pre_row_w)
+            );
+
+            // multiply by w0
             floating_point_multiplier #(
                 .EXP_WIDTH (EXP_WIDTH),
                 .FRAC_WIDTH(FRAC_WIDTH)
             ) v_pass_weighted (
                 .clk_i(clk_i),
                 .rst_i(rst_i),
-                .fp_a_i (v_data_w[2]),
+                .fp_a_i (v_pass_pre_data_w),
                 .fp_b_i (w_i[0]),
-                .valid_i(v_valid_w[2]),
+                .valid_i(v_pass_pre_valid_w),
                 .fp_o   (v_pass_data_weighted_w),
                 .valid_o(v_pass_valid_weighted_w)
             );
@@ -2068,7 +2211,7 @@ module zero_scale_fp16 #(
             ) v_pass_col_w_delay (
                 .clk_i(clk_i),
                 .rst_i(rst_i),
-                .fp_a_i(v_col_w[2]),
+                .fp_a_i(v_pass_pre_col_w),
                 .fp_o  (v_pass_col_weighted_w)
             );
 
@@ -2078,18 +2221,32 @@ module zero_scale_fp16 #(
             ) v_pass_row_w_delay (
                 .clk_i(clk_i),
                 .rst_i(rst_i),
-                .fp_a_i(v_row_w[2]),
+                .fp_a_i(v_pass_pre_row_w),
                 .fp_o  (v_pass_row_weighted_w)
             );
 
             // ----- W weighted -------
+
+            // first square
+            floating_point_multiplier #(
+                .EXP_WIDTH (EXP_WIDTH),
+                .FRAC_WIDTH(FRAC_WIDTH)
+            ) w_pass_pre_weighted (
+                .clk_i(clk_i),
+                .rst_i(rst_i),
+                .fp_a_i (w_data_w),
+                .fp_b_i (w_data_w),
+                .fp_o   (w_pass_pre_data_w)
+            );
+
+            // multipy by w0
             floating_point_multiplier #(
                 .EXP_WIDTH (EXP_WIDTH),
                 .FRAC_WIDTH(FRAC_WIDTH)
             ) w_pass_weighted (
                 .clk_i(clk_i),
                 .rst_i(rst_i),
-                .fp_a_i (w_data_w),
+                .fp_a_i (w_pass_pre_data_w),
                 .fp_b_i (w_i[0]),
                 .fp_o   (w_pass_data_weighted_w)
             );
