@@ -58,7 +58,13 @@ module dual_scale_wrapper_fp16 #(
         .row_o  (i_a_row_w),
         .valid_o(i_a_valid_w)
     );
-
+    /*
+    assign z_o = i_a_data_w;
+    assign c_o = i_t_data_w;
+    assign col_o = i_a_col_w;
+    assign row_o = i_a_row_w;
+    assign valid_o = i_a_valid_w;
+    */
     logic [FP_WIDTH_REG - 1 : 0] v_0_data_w;
     logic [FP_WIDTH_REG - 1 : 0] w_0_data_w;
     logic [15:0]                 v_0_col_w;

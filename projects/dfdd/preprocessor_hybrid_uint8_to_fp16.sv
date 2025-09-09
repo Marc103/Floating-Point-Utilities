@@ -40,28 +40,36 @@ module preprocessing_hybrid_uint8_to_fp16 #(
     // row/col maintained by MSB stream at zipped stages (i rho plus)
     //--------------------------------------------
     // processing I_rho_plus / I rho minus (ip / im):
+    // _b refers to buffer line
     //
     // window fetcher ip - 1x3
     // box filter horizontal ip 
+    // box filter horizontal ip_b 
     //
     // window fetcher im - 1x3
     // box filter horizontal im
+    // box filter horizontal im_b
     //--------------------------------------------
     // window fetcher zipped data - 3x1
+    // window fetcher zipped data_b - 3x1
     //
     // box filter vertical ip
-    // window fetcher ip - 1x5
-    // gaussian horizontal ip
+    // box filter vertical ip_b
+    // ip - box(ip) --> ip_br (background removed)
+    // window fetcher ip_br - 1x5
+    // gaussian horizontal ip_br
     //
     // box filter vertical im
-    // window fetcher im - 1x5
-    // gaussian horizontal ip
+    // box filter vertical im_b
+    // ip - box(ip) --> im_br (background removed)
+    // window fetcher im_br - 1x5
+    // gaussian horizontal im_br
     //--------------------------------------------
     // window fetcher zipped data - 5x1
     //
-    // gaussian vertical ip
+    // gaussian vertical ip_br
     //
-    // gaussian vertical im
+    // gaussian vertical im_br
 
     logic [7:0]  i_rho_plus_wfh_window_w [1][3];
     logic [15:0] i_rho_plus_wfh_col_w;
@@ -91,6 +99,7 @@ module preprocessing_hybrid_uint8_to_fp16 #(
     );
 
     logic [9:0]  i_rho_plus_boxh_data_w;
+    logic [7:0]  i_rho_plus_boxh_data_delay_w;
     logic [15:0] i_rho_plus_boxh_col_w;
     logic [15:0] i_rho_plus_boxh_row_w;
     logic        i_rho_plus_boxh_valid_w;
@@ -110,6 +119,10 @@ module preprocessing_hybrid_uint8_to_fp16 #(
         .valid_o(i_rho_plus_boxh_valid_w)
     );
 
+    always@(posedge clk_i) begin
+        i_rho_plus_boxh_data_delay_w <= i_rho_plus_wfh_window_w[0][1];
+    end
+    
     logic [7:0]  i_rho_minus_wfh_window_w [1][3];
     logic [15:0] i_rho_minus_wfh_col_w;
     logic [15:0] i_rho_minus_wfh_row_w;
@@ -138,6 +151,7 @@ module preprocessing_hybrid_uint8_to_fp16 #(
     );
 
     logic [9:0]  i_rho_minus_boxh_data_w;
+    logic [7:0]  i_rho_minus_boxh_data_delay_w;
     logic [15:0] i_rho_minus_boxh_col_w;
     logic [15:0] i_rho_minus_boxh_row_w;
     logic        i_rho_minus_boxh_valid_w;
@@ -156,6 +170,10 @@ module preprocessing_hybrid_uint8_to_fp16 #(
         .row_o  (i_rho_minus_boxh_row_w),
         .valid_o(i_rho_minus_boxh_valid_w)
     );
+
+    always@(posedge clk_i) begin
+        i_rho_minus_boxh_data_delay_w <= i_rho_minus_wfh_window_w[0][1];
+    end
 
     //--------------------------------------------
     // ------------- zip --------------
@@ -206,6 +224,30 @@ module preprocessing_hybrid_uint8_to_fp16 #(
         .valid_o (i_rho_wfv_valid_w)
     );
 
+    logic [15:0] i_rho_boxh_data_delay_w;
+    assign i_rho_boxh_data_delay_w = {i_rho_plus_boxh_data_delay_w, i_rho_minus_boxh_data_delay_w};
+
+    logic [15:0] i_rho_wfv_data_delay_w;
+
+    window_fetcher_z #(
+        .DATA_WIDTH(8 * 2),
+        .IMAGE_WIDTH(IMAGE_WIDTH),
+        .IMAGE_HEIGHT(IMAGE_HEIGHT),
+        .WINDOW_WIDTH (1),
+        .WINDOW_HEIGHT(3),
+        .BORDER_ENABLE(BORDER_ENABLE)
+    ) i_rho_window_fetcher_v_delay (
+        .clk_i(clk_i),
+        .rst_i(rst_i),
+
+        .data_i(i_rho_boxh_data_delay_w),
+        .col_i  (i_rho_boxh_col_w),
+        .row_i  (i_rho_boxh_row_w),
+        .valid_i(i_rho_boxh_valid_w),
+
+        .data_o(i_rho_wfv_data_delay_w)
+    );
+
     // unzip
     always_comb begin
         for(int c = 0; c < 3; c++) begin
@@ -224,6 +266,7 @@ module preprocessing_hybrid_uint8_to_fp16 #(
     end
 
     logic [11:0] i_rho_plus_box_data_w;
+    logic [11:0] i_rho_plus_box_data_delay_w;
     logic [15:0] i_rho_plus_box_col_w;
     logic [15:0] i_rho_plus_box_row_w;
     logic        i_rho_plus_box_valid_w;
@@ -243,13 +286,38 @@ module preprocessing_hybrid_uint8_to_fp16 #(
         .valid_o(i_rho_plus_box_valid_w)
     );
 
-    logic [11:0] i_rho_plus_box_wfh_window_w [1][5];
+    ////////////////////////////////////////////////////////////////
+    // ip_br = ip - box(ip)
+
+    always@(posedge clk_i) begin
+        i_rho_plus_box_data_delay_w <= i_rho_wfv_data_delay_w[15:8] * 4'b1001;
+    end 
+
+    logic [12:0] i_rho_plus_box_data_delay_zext_w;
+    assign i_rho_plus_box_data_delay_zext_w = {1'b0, i_rho_plus_box_data_delay_w};
+
+    logic [12:0] i_rho_plus_box_data_zext_w;
+    assign i_rho_plus_box_data_zext_w = {1'b0, i_rho_plus_box_data_w};
+
+    logic [13:0] i_rho_plus_br_data_w;
+    logic [15:0] i_rho_plus_br_col_w;
+    logic [15:0] i_rho_plus_br_row_w;
+    logic        i_rho_plus_br_valid_w;
+
+    always@(posedge clk_i) begin
+        i_rho_plus_br_data_w  <= i_rho_plus_box_data_delay_zext_w - i_rho_plus_box_data_zext_w;
+        i_rho_plus_br_col_w   <= i_rho_plus_box_col_w;
+        i_rho_plus_br_row_w   <= i_rho_plus_box_row_w;
+        i_rho_plus_br_valid_w <= i_rho_plus_box_valid_w;
+    end
+
+    logic [13:0] i_rho_plus_box_wfh_window_w [1][5];
     logic [15:0] i_rho_plus_box_wfh_col_w;
     logic [15:0] i_rho_plus_box_wfh_row_w;
     logic        i_rho_plus_box_wfh_valid_w;
 
     window_fetcher #(
-        .DATA_WIDTH   (12),
+        .DATA_WIDTH   (14),
         .IMAGE_WIDTH  (IMAGE_WIDTH),
         .IMAGE_HEIGHT (IMAGE_HEIGHT),
         .WINDOW_WIDTH (5),
@@ -259,10 +327,10 @@ module preprocessing_hybrid_uint8_to_fp16 #(
         .clk_i(clk_i),
         .rst_i(rst_i),
 
-        .data_i (i_rho_plus_box_data_w),
-        .col_i  (i_rho_plus_box_col_w),
-        .row_i  (i_rho_plus_box_row_w),
-        .valid_i(i_rho_plus_box_valid_w),
+        .data_i (i_rho_plus_br_data_w),
+        .col_i  (i_rho_plus_br_col_w),
+        .row_i  (i_rho_plus_br_row_w),
+        .valid_i(i_rho_plus_br_valid_w),
 
         .window_o(i_rho_plus_box_wfh_window_w),
         .col_o   (i_rho_plus_box_wfh_col_w),
@@ -270,12 +338,12 @@ module preprocessing_hybrid_uint8_to_fp16 #(
         .valid_o (i_rho_plus_box_wfh_valid_w)
     );
 
-    logic [15:0] i_rho_plus_box_bh_data_w;
+    logic [17:0] i_rho_plus_box_bh_data_w;
     logic [15:0] i_rho_plus_box_bh_col_w;
     logic [15:0] i_rho_plus_box_bh_row_w;
     logic        i_rho_plus_box_bh_valid_w;
 
-    custom_burt_h_uint12_to_uint16 i_rho_plus_burt_h (
+    custom_burt_h_sint14_to_sint18 i_rho_plus_burt_h (
         .clk_i(clk_i),
         .rst_i(rst_i),
 
@@ -291,6 +359,7 @@ module preprocessing_hybrid_uint8_to_fp16 #(
     );
 
     logic [11:0] i_rho_minus_box_data_w;
+    logic [11:0] i_rho_minus_box_data_delay_w;
     logic [15:0] i_rho_minus_box_col_w;
     logic [15:0] i_rho_minus_box_row_w;
     logic        i_rho_minus_box_valid_w;
@@ -310,13 +379,38 @@ module preprocessing_hybrid_uint8_to_fp16 #(
         .valid_o(i_rho_minus_box_valid_w)
     );
 
-    logic [11:0] i_rho_minus_box_wfh_window_w [1][5];
+    ////////////////////////////////////////////////////////////////
+    // im_br = im - box(im)
+
+    always@(posedge clk_i) begin
+        i_rho_minus_box_data_delay_w <= i_rho_wfv_data_delay_w[7:0] * 4'b1001;
+    end 
+
+    logic [12:0] i_rho_minus_box_data_delay_zext_w;
+    assign i_rho_minus_box_data_delay_zext_w = {1'b0, i_rho_minus_box_data_delay_w};
+
+    logic [12:0] i_rho_minus_box_data_zext_w;
+    assign i_rho_minus_box_data_zext_w = {1'b0, i_rho_minus_box_data_w};
+
+    logic [13:0] i_rho_minus_br_data_w;
+    logic [15:0] i_rho_minus_br_col_w;
+    logic [15:0] i_rho_minus_br_row_w;
+    logic        i_rho_minus_br_valid_w;
+
+    always@(posedge clk_i) begin
+        i_rho_minus_br_data_w  <= i_rho_minus_box_data_delay_zext_w - i_rho_minus_box_data_zext_w;
+        i_rho_minus_br_col_w   <= i_rho_minus_box_col_w;
+        i_rho_minus_br_row_w   <= i_rho_minus_box_row_w;
+        i_rho_minus_br_valid_w <= i_rho_minus_box_valid_w;
+    end
+
+    logic [13:0] i_rho_minus_box_wfh_window_w [1][5];
     logic [15:0] i_rho_minus_box_wfh_col_w;
     logic [15:0] i_rho_minus_box_wfh_row_w;
     logic        i_rho_minus_box_wfh_valid_w;
 
     window_fetcher #(
-        .DATA_WIDTH   (12),
+        .DATA_WIDTH   (14),
         .IMAGE_WIDTH  (IMAGE_WIDTH),
         .IMAGE_HEIGHT (IMAGE_HEIGHT),
         .WINDOW_WIDTH (5),
@@ -326,10 +420,10 @@ module preprocessing_hybrid_uint8_to_fp16 #(
         .clk_i(clk_i),
         .rst_i(rst_i),
 
-        .data_i (i_rho_minus_box_data_w),
-        .col_i  (i_rho_minus_box_col_w),
-        .row_i  (i_rho_minus_box_row_w),
-        .valid_i(i_rho_minus_box_valid_w),
+        .data_i (i_rho_minus_br_data_w),
+        .col_i  (i_rho_minus_br_col_w),
+        .row_i  (i_rho_minus_br_row_w),
+        .valid_i(i_rho_minus_br_valid_w),
 
         .window_o(i_rho_minus_box_wfh_window_w),
         .col_o   (i_rho_minus_box_wfh_col_w),
@@ -337,12 +431,12 @@ module preprocessing_hybrid_uint8_to_fp16 #(
         .valid_o (i_rho_minus_box_wfh_valid_w)
     );
 
-    logic [15:0] i_rho_minus_box_bh_data_w;
+    logic [17:0] i_rho_minus_box_bh_data_w;
     logic [15:0] i_rho_minus_box_bh_col_w;
     logic [15:0] i_rho_minus_box_bh_row_w;
     logic        i_rho_minus_box_bh_valid_w;
 
-    custom_burt_h_uint12_to_uint16 i_rho_minus_box_burt_h (
+    custom_burt_h_sint14_to_sint18 i_rho_minus_box_burt_h (
         .clk_i(clk_i),
         .rst_i(rst_i),
 
@@ -360,7 +454,7 @@ module preprocessing_hybrid_uint8_to_fp16 #(
 
     //--------------------------------------------
     // ------------- zip --------------
-    logic [(16 * 2) - 1 : 0] i_rho_box_bh_data_w;
+    logic [(18 * 2) - 1 : 0] i_rho_box_bh_data_w;
     logic [15:0]                       i_rho_box_bh_col_w;
     logic [15:0]                       i_rho_box_bh_row_w;
     logic                              i_rho_box_bh_valid_w;
@@ -370,23 +464,23 @@ module preprocessing_hybrid_uint8_to_fp16 #(
     assign i_rho_box_bh_row_w   = i_rho_plus_box_bh_row_w;
     assign i_rho_box_bh_valid_w = i_rho_plus_box_bh_valid_w;
 
-    logic [(16 * 2) - 1 : 0] i_rho_box_wfv_window_w [5][1];
+    logic [(18 * 2) - 1 : 0] i_rho_box_wfv_window_w [5][1];
     logic [15:0]                       i_rho_box_wfv_col_w;
     logic [15:0]                       i_rho_box_wfv_row_w;
     logic                              i_rho_box_wfv_valid_w;
 
-    logic [16 - 1 : 0] i_rho_plus_box_wfv_window_w [5][1];
+    logic [18 - 1 : 0] i_rho_plus_box_wfv_window_w [5][1];
     logic [15:0]                 i_rho_plus_box_wfv_col_w;
     logic [15:0]                 i_rho_plus_box_wfv_row_w;
     logic                        i_rho_plus_box_wfv_valid_w;
 
-    logic [16 - 1 : 0] i_rho_minus_box_wfv_window_w [5][1];
+    logic [18 - 1 : 0] i_rho_minus_box_wfv_window_w [5][1];
     logic [15:0]                 i_rho_minus_box_wfv_col_w;
     logic [15:0]                 i_rho_minus_box_wfv_row_w;
     logic                        i_rho_minus_box_wfv_valid_w;
 
     window_fetcher #(
-        .DATA_WIDTH   (16 * 2),
+        .DATA_WIDTH   (18 * 2),
         .IMAGE_WIDTH  (IMAGE_WIDTH),
         .IMAGE_HEIGHT (IMAGE_HEIGHT),
         .WINDOW_WIDTH (1),
@@ -410,8 +504,8 @@ module preprocessing_hybrid_uint8_to_fp16 #(
     // unzip
     always_comb begin
         for(int c = 0; c < 5; c++) begin
-            i_rho_plus_box_wfv_window_w [c][0] = i_rho_box_wfv_window_w[c][0][(16 * 2) - 1: 16];
-            i_rho_minus_box_wfv_window_w[c][0] = i_rho_box_wfv_window_w[c][0][16 - 1 : 0];
+            i_rho_plus_box_wfv_window_w [c][0] = i_rho_box_wfv_window_w[c][0][(18 * 2) - 1: 18];
+            i_rho_minus_box_wfv_window_w[c][0] = i_rho_box_wfv_window_w[c][0][18 - 1 : 0];
         end
 
         i_rho_plus_box_wfv_col_w   = i_rho_box_wfv_col_w;
@@ -424,12 +518,12 @@ module preprocessing_hybrid_uint8_to_fp16 #(
     end
 
 
-    logic [19:0] i_rho_plus_gaussian_data_uint_w;
+    logic [21:0] i_rho_plus_gaussian_data_uint_w;
     logic [15:0] i_rho_plus_gaussian_col_uint_w;
     logic [15:0] i_rho_plus_gaussian_row_uint_w;
     logic        i_rho_plus_gaussian_valid_uint_w;
 
-    custom_burt_v_uint16_to_uint20 i_rho_plus_burt_v (
+    custom_burt_v_sint18_to_sint22 i_rho_plus_burt_v (
         .clk_i(clk_i),
         .rst_i(rst_i),
 
@@ -444,12 +538,12 @@ module preprocessing_hybrid_uint8_to_fp16 #(
         .valid_o(i_rho_plus_gaussian_valid_uint_w)
     );
 
-    logic [19:0] i_rho_minus_gaussian_data_uint_w;
+    logic [21:0] i_rho_minus_gaussian_data_uint_w;
     logic [15:0] i_rho_minus_gaussian_col_uint_w;
     logic [15:0] i_rho_minus_gaussian_row_uint_w;
     logic        i_rho_minus_gaussian_valid_uint_w;
 
-    custom_burt_v_uint16_to_uint20 i_rho_minus_burt_v (
+    custom_burt_v_sint18_to_sint22 i_rho_minus_burt_v (
         .clk_i(clk_i),
         .rst_i(rst_i),
 
@@ -465,7 +559,7 @@ module preprocessing_hybrid_uint8_to_fp16 #(
     );
 
     ////////////////////////////////////////////////////////////////
-    // converting U8.12 to FP16
+    // converting S10.12 to FP16
 
     logic [FP_WIDTH_REG - 1 : 0] i_rho_plus_gaussian_data_w;
     logic [15:0]                 i_rho_plus_gaussian_col_w;
@@ -484,11 +578,11 @@ module preprocessing_hybrid_uint8_to_fp16 #(
         row_delay <= i_rho_plus_gaussian_row_uint_w;
     end
 
-    uint8_12_to_fp16_converter i_plus (
+    sint10_12_to_fp16_converter i_plus (
         .clk_i(clk_i),
         .rst_i(rst_i),
 
-        .uint8_12_i(i_rho_plus_gaussian_data_uint_w),
+        .sint10_12_i(i_rho_plus_gaussian_data_uint_w),
         .valid_i   (i_rho_plus_gaussian_valid_uint_w),
 
         .fp16_o (i_rho_plus_gaussian_data_w),
@@ -498,11 +592,11 @@ module preprocessing_hybrid_uint8_to_fp16 #(
     assign i_rho_plus_gaussian_col_w = col_delay;
     assign i_rho_plus_gaussian_row_w = row_delay;
 
-    uint8_12_to_fp16_converter i_minus (
+    sint10_12_to_fp16_converter i_minus (
         .clk_i(clk_i),
         .rst_i(rst_i),
 
-        .uint8_12_i(i_rho_minus_gaussian_data_uint_w),
+        .sint10_12_i(i_rho_minus_gaussian_data_uint_w),
         .valid_i   (i_rho_minus_gaussian_valid_uint_w),
 
         .fp16_o (i_rho_minus_gaussian_data_w),
@@ -565,7 +659,7 @@ module preprocessing_hybrid_uint8_to_fp16 #(
     floating_point_multiplier_exponent #(
         .EXP_WIDTH(EXP_WIDTH),
         .FRAC_WIDTH(FRAC_WIDTH),
-        .EXPONENT(-8)
+        .EXPONENT(-1)
     ) i_a_plus_multiplier (
         .clk_i(clk_i),
         .rst_i(rst_i),
@@ -625,7 +719,7 @@ module preprocessing_hybrid_uint8_to_fp16 #(
     floating_point_multiplier_exponent #(
         .EXP_WIDTH(EXP_WIDTH),
         .FRAC_WIDTH(FRAC_WIDTH),
-        .EXPONENT(-8)
+        .EXPONENT(-1)
     ) i_t_minus_multiplier (
         .clk_i(clk_i),
         .rst_i(rst_i),
@@ -634,10 +728,11 @@ module preprocessing_hybrid_uint8_to_fp16 #(
         .fp_o   (i_t_data_w)
     );
     
-    assign i_a_o   = i_a_data_w;
-    assign i_t_o   = i_t_data_w;
-    assign col_o   = i_a_col_w;
-    assign row_o   = i_a_row_w;
-    assign valid_o = i_a_valid_w;
+    assign i_a_o   = i_a_plus_data_w;
+    assign i_t_o   = i_t_minus_data_w;
+    assign col_o   = i_a_plus_col_w;
+    assign row_o   = i_a_plus_row_w;
+    assign valid_o = i_a_plus_valid_w;
+    
 
 endmodule

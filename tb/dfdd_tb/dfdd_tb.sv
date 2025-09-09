@@ -82,6 +82,9 @@ import scoreboards_pkg::*;
 `include "custom_burt_h_uint12_to_uint16.sv"
 `include "custom_burt_v_uint16_to_uint20.sv"
 `include "preprocessor_hybrid_uint8_to_fp16.sv"
+`include "custom_burt_h_sint14_to_sint18.sv"
+`include "custom_burt_v_sint18_to_sint22.sv"
+`include "sint10_12_to_fp16_converter.sv"
 
 ////////////////////////////////////////////////////////////////
 // timescale 
@@ -137,10 +140,13 @@ module dfdd_tb();
     logic [15:0] a [2];
     logic [15:0] b [2];
 
-    assign w = '{'{16'h2c56,16'h2c16,16'h2d76},
-                 '{16'h3494,16'h33ea,16'h33fd}};
-    assign a = '{16'h3c7c,16'h3e09};
-    assign b = '{16'h454d, 16'h4129};
+    assign w = '{'{16'h2c0b,16'h2e38,16'h2fdd},
+                 '{16'h33d4,16'h3385,16'h3398}};
+    assign a = '{16'h3c79,16'h3ea0};
+    assign b = '{16'h4562, 16'h410b};
+
+    //assign w = '{'{16'h3c00,16'h3c00,16'h3c00},
+    //             '{16'h3c00,16'h3c00,16'h3c00}};
 
     //assign b = '{16'h2f52,16'h3694};
     //assign a = '{16'h3eac, 16'h3b95};

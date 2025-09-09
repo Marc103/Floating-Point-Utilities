@@ -20,8 +20,8 @@ module top #(
     localparam FP_S_IMAGE = 0,  //1
 
     // i2c
-    parameter string INIT_FILE_0 = "../../synth/dual_scale/hm0360_initializer_program_0.hex",
-    parameter string INIT_FILE_1 = "../../synth/dual_scale/hm0360_initializer_program_1.hex",
+    parameter string INIT_FILE_0 = "../../synth/in_the_wild/hm0360_initializer_program_0.hex",
+    parameter string INIT_FILE_1 = "../../synth/in_the_wild/hm0360_initializer_program_1.hex",
     parameter SCL_DIV = 50,
 
     // bilinear matrix parameters
@@ -363,20 +363,30 @@ module top #(
     logic rd_sof_sbi_delay;
     always@(posedge core_clk) rd_sof_sbi_delay <= rd_sof_sbi_w;
 
-    logic [15:0] uint8_in_0;
-    logic [15:0] uint8_in_1;
+    logic [15:0] fp16_in_0;
+    logic [15:0] fp16_in_1;
     logic        valid_in_0;
     
-    always@(posedge core_clk) begin
-        uint8_in_0 <= rd_channels_sbi_w[0];
-        uint8_in_1 <= rd_channels_sbi_w[1];
+    uint8_fp16_converter cam_0_uint8_fp16_converter (
+        .clk_i(core_clk),
+        .rst_i(sys_reset),
 
-        if(sys_reset) begin
-            valid_in_0 <= 0;
-        end else begin
-            valid_in_0 <= rd_valid_sbi_w;
-        end
-    end
+        .uint8_i(rd_channels_sbi_w[0]),
+        .valid_i(rd_valid_sbi_w),
+
+        .fp16_o(fp16_in_0),
+        .valid_o(valid_in_0)
+    );
+
+    uint8_fp16_converter cam_1_uint8_fp16_converter (
+        .clk_i(core_clk),
+        .rst_i(sys_reset),
+
+        .uint8_i(rd_channels_sbi_w[1]),
+        .valid_i(rd_valid_sbi_w),
+
+        .fp16_o(fp16_in_1)
+    );
 
     logic [15:0] col_in;
     logic [15:0] col_in_next;
@@ -431,11 +441,13 @@ module top #(
     logic [15:0] a [2];
     logic [15:0] b [2];
 
-    assign w = '{'{16'h2c0b,16'h2e38,16'h2fdd},
-                 '{16'h33d4,16'h3385,16'h3398}};
-    assign a = '{16'h3c79,16'h3ea0};
-    assign b = '{16'h4562, 16'h410b};
+    assign w = '{'{16'hbc00,16'h3c00,16'h3c00},
+                 '{16'hbc00,16'h3c00,16'h3c00}};
+    assign w_t = 16'h4200;
+    assign a = '{16'h4000,16'h4000};
+    assign b = '{16'h3c00, 16'h3c00};
 
+    /*
     dual_scale_wrapper_fp16 #(
         .IMAGE_WIDTH(ROI_WIDTH),
         .IMAGE_HEIGHT(ROI_HEIGHT),
@@ -445,13 +457,14 @@ module top #(
         .clk_i(core_clk),
         .rst_i(sys_reset),
 
-        .i_rho_plus_uint8_i (uint8_in_0),
-        .i_rho_minus_uint8_i(uint8_in_1),
+        .i_rho_plus_i (fp16_in_0),
+        .i_rho_minus_i(fp16_in_1),
         .col_i        (col_in_0),
         .row_i        (row_in_0),
         .valid_i      (valid_in_0),
 
         .w_i  (w),
+        .w_t_i(w_t),
         .a_i  (a),
         .b_i  (b),
 
@@ -461,6 +474,55 @@ module top #(
         .row_o  (row_out),
         .valid_o(valid_out)
     );
+    */
+
+    
+    preprocessing_hybrid_uint8_to_fp16 #(
+        .IMAGE_WIDTH(ROI_WIDTH),
+        .IMAGE_HEIGHT(ROI_HEIGHT),
+        .BORDER_ENABLE(0)
+    ) p (
+        .clk_i(core_clk),
+        .rst_i(sys_reset),
+
+        .i_rho_plus_i (fp16_in_0[15:0]),
+        .i_rho_minus_i(fp16_in_1[15:0]),
+        .col_i        (col_in_0),
+        .row_i        (row_in_0),
+        .valid_i      (valid_in_0),
+
+        .i_a_o    (fp16_z_out),
+        .i_t_o   (fp16_c_out),
+        .col_o  (col_out),
+        .row_o  (row_out),
+        .valid_o(valid_out)
+    );
+    
+
+    /*
+    assign fp16_z_out = fp16_in_0;
+    assign fp16_c_out = fp16_in_1;
+    assign col_out = col_in_0;
+    assign row_out = row_in_0;
+    assign valid_o = valid_out;
+    */
+
+    /*
+    floating_point_adder #(
+        .EXP_WIDTH(5),
+        .FRAC_WIDTH(10)
+    ) adder (
+        .clk_i(core_clk),
+        .rst_i(sys_reset),
+
+        .fp_a_i(fp16_in_0),
+        .fp_b_i(fp16_in_1),
+        .valid_i(valid_in_0),
+
+        .fp_o(fp16_z_out),
+        .valid_o(valid_out)
+    );
+    */
 
     // fp16 to u8 conversions -------------------------------
     logic wr_sof_sbo_delay;
