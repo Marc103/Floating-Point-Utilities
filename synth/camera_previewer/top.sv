@@ -167,6 +167,7 @@ module top #(
     ////////////////////////////////////////////////////////////////
     // Camera wiring
     logic i2c_shutter_trig;
+    
     wire cameras_xsleep [2] = {camera_0_xsleep, camera_1_xsleep};
     wire i2c_inits_done [2];
     wire cameras_sda    [2] = {camera_0_sda, camera_1_sda};
@@ -363,6 +364,7 @@ module top #(
     assign wr_clks_sbo_w = '{core_clk, core_clk};
     assign wr_rsts_sbo_w = '{sys_reset, sys_reset};
     assign wr_sof_sbo_w     = rd_sof_sbi_w;
+    assign wr_valids_sbo_w   = {rd_valid_sbi_w, rd_valid_sbi_w};
 
     ////////////////////////////////////////////////////////////////
     // Output Stream Buffer

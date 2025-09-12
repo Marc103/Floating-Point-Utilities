@@ -85,6 +85,8 @@ import scoreboards_pkg::*;
 `include "custom_burt_h_sint14_to_sint18.sv"
 `include "custom_burt_v_sint18_to_sint22.sv"
 `include "sint10_12_to_fp16_converter.sv"
+`include "box_h_0_ones_fp16.sv"
+`include "box_v_0_ones_fp16.sv"
 
 ////////////////////////////////////////////////////////////////
 // timescale 

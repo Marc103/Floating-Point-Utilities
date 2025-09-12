@@ -191,16 +191,16 @@ module dual_scale_wrapper_fp16 #(
 
     logic [FP_WIDTH_REG - 1 : 0] boxh_kernel_w [1][3];
     always_comb begin
-        boxh_kernel_w[0][0] = 16'h3555;
-        boxh_kernel_w[0][1] = 16'h3555;
-        boxh_kernel_w[0][2] = 16'h3555;
+        boxh_kernel_w[0][0] = 16'h3c00;
+        boxh_kernel_w[0][1] = 16'h3c00;
+        boxh_kernel_w[0][2] = 16'h3c00;
     end
 
     logic [FP_WIDTH_REG - 1 : 0] boxv_kernel_w [3][1];
     always_comb begin
-        boxv_kernel_w[0][0] = 16'h3555;
-        boxv_kernel_w[1][0] = 16'h3555;
-        boxv_kernel_w[2][0] = 16'h3555;
+        boxv_kernel_w[0][0] = 16'h3c00;
+        boxv_kernel_w[1][0] = 16'h3c00;
+        boxv_kernel_w[2][0] = 16'h3c00;
     end
 
     
@@ -272,7 +272,7 @@ module dual_scale_wrapper_fp16 #(
     logic [15:0]                 v_added_boxh_row_w;
     logic                        v_added_boxh_valid_w;
     
-    box_h_0_fp16 v_added_box_h (
+    box_h_0_ones_fp16 v_added_box_h (
         .clk_i(clk_i),
         .rst_i(rst_i),
 
@@ -293,7 +293,7 @@ module dual_scale_wrapper_fp16 #(
     logic [15:0]                 w_added_boxh_row_w;
     logic                        w_added_boxh_valid_w;
     
-    box_h_0_fp16 w_added_box_h (
+    box_h_0_ones_fp16 w_added_box_h (
         .clk_i(clk_i),
         .rst_i(rst_i),
 
@@ -377,7 +377,7 @@ module dual_scale_wrapper_fp16 #(
     logic [15:0]                 v_added_box_row_w;
     logic                        v_added_box_valid_w;
 
-    box_v_0_fp16 v_added_box_v (
+    box_v_0_ones_fp16 v_added_box_v (
         .clk_i(clk_i),
         .rst_i(rst_i),
 
@@ -398,7 +398,7 @@ module dual_scale_wrapper_fp16 #(
     logic [15:0]                 w_added_box_row_w;
     logic                        w_added_box_valid_w;
 
-    box_v_0_fp16 w_added_box_v (
+    box_v_0_ones_fp16 w_added_box_v (
         .clk_i(clk_i),
         .rst_i(rst_i),
 
