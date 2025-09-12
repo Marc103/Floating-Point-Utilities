@@ -152,6 +152,7 @@ class StreamDecoder:
         self.recorder_queues = recorder_queues
         self.recorder_request_queue = recorder_request_queue
         self.remaining = 0
+        self.several_frames_requested = False
         self.output_dir = ''
         self.base_filename = ''
         self.unique_id = 0
@@ -225,6 +226,12 @@ class StreamDecoder:
         if(req == None): # means a req was previously passed and processing
             return
         self.remaining = req["frames"]
+
+        if(self.remaining < 2):
+            self.several_frames_requested = False
+        else:
+            self.several_frames_requested = True
+        
         file_path = req["filename"].split("/")
         
         if(req["filename"] == ""):
@@ -253,11 +260,21 @@ class StreamDecoder:
             channel_pkg = self.recorder_queues[c].get()
             channel_int_np = channel_pkg[1]
 
-            np.save(filename + "_" + str(c) + "_" + str(self.remaining) + "_" + str(self.unique_id) + "_int.npy",channel_int_np)
+            if(self.several_frames_requested):
+                np.save(filename + "_" + str(c) + "_" + str(width) + "_" + str(height) + "_"  + str(self.remaining) + "_" + str(self.unique_id) + "_int.npy",channel_int_np)
 
-            # uint8 png
-            channel_uint8_np = (channel_int_np >> (data_width - 8)).astype(np.uint8)
-            cv2.imwrite(filename + "_" + str(c) + "_" + str(self.remaining) + str(self.unique_id) + "_int.png",channel_uint8_np)
+                # uint8 png
+                channel_uint8_np = (channel_int_np >> (data_width - 8)).astype(np.uint8)
+                cv2.imwrite(filename + "_" + str(c) + "_" + str(width) + "_" + str(height) + "_" + str(self.remaining) + "_" + str(self.unique_id) + ".png",channel_uint8_np)
+            else:
+                np.save(filename + "_" + str(c)  + "_" + str(width) + "_" + str(height) + "_" + str(self.unique_id) + "_int.npy",channel_int_np)
+
+                # uint8 png
+                channel_uint8_np = (channel_int_np >> (data_width - 8)).astype(np.uint8)
+                cv2.imwrite(filename + "_" + str(c) + "_" + str(width) + "_" + str(height) + "_"  + str(self.unique_id) + ".png",channel_uint8_np)
+
+            
+        self.unique_id += 1
         return
 
 class DataRateStats:
