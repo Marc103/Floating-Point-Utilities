@@ -363,8 +363,8 @@ module top #(
     logic rd_sof_sbi_delay;
     always@(posedge core_clk) rd_sof_sbi_delay <= rd_sof_sbi_w;
 
-    logic [15:0] uint8_in_0;
-    logic [15:0] uint8_in_1;
+    logic [7:0] uint8_in_0;
+    logic [7:0] uint8_in_1;
     logic        valid_in_0;
     
     always@(posedge core_clk) begin
