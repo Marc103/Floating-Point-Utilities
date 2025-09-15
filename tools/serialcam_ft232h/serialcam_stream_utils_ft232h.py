@@ -8,6 +8,7 @@ from collections import deque
 import queue
 from serialcam_ft232h_dialogs import *
 import colormaps
+import math
 
 def printhex(arr):
     hex_vals = [f"{val:02x}" for val in arr]
@@ -19,6 +20,29 @@ def combine_bytes(np_arr, data_width):
     cols = np_arr.shape[1]
     shifts = data_width * np.arange(cols - 1, -1, -1)  # e.g., [24, 16, 8, 0] for 4 bytes
     return np_arr.astype(int) @ (1 << shifts)
+
+def tile_arrays(arrays, fill_value=0):
+    """
+    Take a list of 2D NumPy arrays (same shape) and tile them
+    into a square grid. Empty slots are filled with fill_value.
+    """
+    if not arrays:
+        return None
+
+    h, w = arrays[0].shape
+    n = len(arrays)
+    grid_size = math.ceil(math.sqrt(n))
+
+    # Create big array initialized with fill_value
+    big = np.full((grid_size * h, grid_size * w), fill_value, dtype=arrays[0].dtype)
+
+    for idx, arr in enumerate(arrays):
+        row = idx // grid_size
+        col = idx % grid_size
+        big[row*h:(row+1)*h, col*w:(col+1)*w] = arr
+
+    return big
+
 
 
 # Sends and Recieves binary data from FT232h chip
@@ -143,10 +167,10 @@ class BinaryDecoder:
 #
 # It also has the additional job of recording the fps stats.
 class StreamDecoder:
-    def __init__(self, rx_stream_queue, rx_channel_queues, windows, recorder_queues, recorder_request_queue):
+    def __init__(self, rx_stream_queue, rx_channel_queues, window, recorder_queues, recorder_request_queue):
         self.rx_stream_queue        = rx_stream_queue
         self.rx_channel_queues      = rx_channel_queues
-        self.windows                = windows
+        self.window                 = window
 
         # Recording related
         self.recorder_queues = recorder_queues
@@ -212,11 +236,10 @@ class StreamDecoder:
                 fps = 1.0 / dt if dt > 0 else 0.0
                 fps_str = f"FPS: {fps:.2f}"
 
-                # Finally for each window, we have to emit the signal to update the display
+                # Finally for the window, we have to emit the signal to update the display
                 # and pass the fps stat
-                for w in self.windows:
-                    w.new_image_received.emit()
-                    w.statusBar().showMessage(fps_str)
+                self.window.new_image_received.emit()
+                self.window.statusBar().showMessage(fps_str)
                 
             except Exception as e:
                 print(e)
@@ -362,22 +385,37 @@ class ImageDisplayWindow(QtWidgets.QMainWindow):
     def update_image(self):
         while True:
             try:
-                rx_channel_pkg         = self.image_queue.get_nowait()
-                rx_channel_header_info = rx_channel_pkg[0]
-                rx_channel             = rx_channel_pkg[1]
+                rx_channel_pkgs = []
+                # there must be at least one channel
+                rx_channel_pkgs.append(self.image_queue[0].get_nowait())
+
+                rx_channel_header_info = rx_channel_pkgs[0][0]
+
                 width      = rx_channel_header_info[0]
                 height     = rx_channel_header_info[1]
                 channels   = rx_channel_header_info[2]
                 data_width = rx_channel_header_info[3]
+
+                for c in range(1, channels):
+                    rx_channel_pkgs.append(self.image_queue[c].get_nowait())
+
             except queue.Empty:
                 return
+            
+            rx_channels = []
+            for c in range(0, channels):
+                rx_channels.append(rx_channel_pkgs[c][1])
+
+            tiled_image = tile_arrays(rx_channels)
+
+            
 
             #scale according to data width
-            rx_channel = rx_channel >> (data_width - 8)
+            tiled_image = tiled_image >> (data_width - 8)
             # type cast as uint8
-            rx_channel = rx_channel.astype(dtype=np.uint8)
+            tiled_image = tiled_image.astype(dtype=np.uint8)
             # default is just a copy to keep it alive for Qt
-            image = rx_channel.copy()
+            image = tiled_image.copy()
 
             if (self.color_map == "color"):
                 colormap = np.floor(np.array(colormaps.viridis) * 256).astype(np.uint8)

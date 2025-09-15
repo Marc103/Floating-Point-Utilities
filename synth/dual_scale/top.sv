@@ -259,6 +259,15 @@ module top #(
     logic signed [11+PRECISION-1:0] bilinear_matrices [2][3][3];
 
     ////////////////////////////////////////////////////////////////
+    // Dfdd constants wiring
+    logic [15:0] a  [3];
+    logic [15:0] b  [3];
+    logic [15:0] w0 [3];
+    logic [15:0] w1 [3];
+    logic [15:0] w2 [3];
+    logic [15:0] confidence;
+
+    ////////////////////////////////////////////////////////////////
     // i2c shutter trig
     // Tells the i2c controllers when to release the cameras from reset.
     localparam SHUTTER_PERIOD = 6000000;
@@ -426,15 +435,16 @@ module top #(
     logic [15:0] row_out;
     logic        valid_out;
     
-    logic [15:0] w [2][3];
-    logic [15:0] w_t;
-    logic [15:0] a [2];
-    logic [15:0] b [2];
+    logic [15:0] w_dual [2][3];
+    logic [15:0] a_dual [2];
+    logic [15:0] b_dual [2];
 
-    assign w = '{'{16'h2c0b,16'h2e38,16'h2fdd},
-                 '{16'h33d4,16'h3385,16'h3398}};
-    assign a = '{16'h3c79,16'h3ea0};
-    assign b = '{16'h4562, 16'h410b};
+    assign a_dual = '{a[0], a[1]};
+    assign b_dual = '{b[0], b[1]};
+
+    assign w_dual = '{'{w0[0], w1[0], w2[0]},
+                      '{w0[1], w1[1], w2[1]}};
+    
 
     dual_scale_wrapper_fp16 #(
         .IMAGE_WIDTH(ROI_WIDTH),
@@ -451,9 +461,9 @@ module top #(
         .row_i        (row_in_0),
         .valid_i      (valid_in_0),
 
-        .w_i  (w),
-        .a_i  (a),
-        .b_i  (b),
+        .w_i  (w_dual),
+        .a_i  (a_dual),
+        .b_i  (b_dual),
 
         .z_o    (fp16_z_out),
         .c_o    (fp16_c_out),
@@ -607,9 +617,12 @@ module top #(
     ) constants_controller (
         .rst_n_i(sys_reset_n),
         .in(command_in),
-        .k1_o(),
-        .k2_o(),
-        .k3_o(),
+        .a_o(a),
+        .b_o(b),
+        .w0_o(w0),
+        .w1_o(w1),
+        .w2_o(w2),
+        .confidence_o(confidence),
         .bilinear_matrices_o(bilinear_matrices),
         .pre_bilinear_roi_boundaries_o(pre_bilinear_roi),
         .post_bilinear_roi_boundaries_o(post_bilinear_roi)

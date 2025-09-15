@@ -11,6 +11,9 @@ import queue
 
 import argparse
 
+from functools import partial
+
+
 # New: Import PyQt for our GUI display
 from PyQt5 import QtWidgets, QtGui, QtCore
 
@@ -306,56 +309,110 @@ class DfddParametersSendWidget(QtWidgets.QWidget):
 
         monospace_font = QtGui.QFontDatabase.systemFont(QtGui.QFontDatabase.FixedFont)
 
-        # A row
-        a_row = QtWidgets.QHBoxLayout()
-        self.dfdd_a = QtWidgets.QLineEdit()
-        self.dfdd_a.setFont(monospace_font); self.dfdd_a.setText("1.000")
-        a_button = QtWidgets.QPushButton("Set A")
-        a_button.clicked.connect(lambda: self.send_dfdd_parameters(self.A_ADDRESS, self.dfdd_a, self.FP_N_K))
-        a_row.addWidget(self.dfdd_a)
-        a_row.addWidget(a_button)
-        layout.addRow("A (float):", a_row)
+        self.title_s    = ["Scale 0", "Scale 1", "Scale 2"]
+        self.a_s        = [None, None, None]
+        self.b_s        = [None, None, None]
+        self.w0_s       = [None, None, None]
+        self.w1_s       = [None, None, None]
+        self.w2_s       = [None, None, None]
+        self.confidence = None
 
-        # B row
-        b_row = QtWidgets.QHBoxLayout()
-        self.dfdd_b = QtWidgets.QLineEdit()
-        self.dfdd_b.setFont(monospace_font); self.dfdd_b.setText("1.000")
-        b_button = QtWidgets.QPushButton("Set B")
-        b_button.clicked.connect(lambda: self.send_dfdd_parameters(self.B_ADDRESS, self.dfdd_b, self.FP_N_K))
-        b_row.addWidget(self.dfdd_b)
-        b_row.addWidget(b_button)
-        layout.addRow("B (float):", b_row)
+        self.a_s_addresses      = [0xa0, 0xa1, 0xa2]
+        self.b_s_addresses      = [0xb0, 0xb1, 0xb2]
+        self.w0_s_addresses     = [0xc0, 0xc1, 0xc2]
+        self.w1_s_addresses     = [0xd0, 0xd1, 0xd2]
+        self.w2_s_addresses     = [0xe0, 0xe1, 0xe2]
+        self.confidence_address = 0x50
 
-        # Conf threshold row
-        dfdd_conf_thresh_row = QtWidgets.QHBoxLayout()
-        self.dfdd_conf_thresh = QtWidgets.QLineEdit()
-        self.dfdd_conf_thresh.setFont(monospace_font); self.dfdd_conf_thresh.setText("10")
-        dfdd_conf_thresh_button = QtWidgets.QPushButton("Set Confidence Threshold")
-        dfdd_conf_thresh_button.clicked.connect(
-            lambda: self.send_dfdd_parameters(self.CONF_THRESHOLD_ADDRESS,
-                                              self.dfdd_conf_thresh,
-                                              self.FP_N_THRESH))
-        dfdd_conf_thresh_row.addWidget(self.dfdd_conf_thresh)
-        dfdd_conf_thresh_row.addWidget(dfdd_conf_thresh_button)
-        layout.addRow("Confidence Threshold (int):", dfdd_conf_thresh_row)
+        for scale in range(0,3):
+            self.title_s[scale] = QtWidgets.QLabel(self.title_s[scale])
+            self.title_s[scale].setFont(QtGui.QFont("Arial", 12, QtGui.QFont.Bold))
+            layout.addRow(self.title_s[scale]) 
+            
+            # A
+            self.a_s[scale] = [QtWidgets.QHBoxLayout(), QtWidgets.QLineEdit(), QtWidgets.QPushButton("Set A")]
+            row =      self.a_s[scale][0]
+            text_box = self.a_s[scale][1]
+            button   = self.a_s[scale][2]
+            text_box.setFont(monospace_font)
+            text_box.setText("1.000")
+            button.clicked.connect(partial(self.send_dfdd_parameter, self.a_s_addresses[scale], text_box))
+            row.addWidget(text_box)
+            row.addWidget(button)
+            layout.addRow(row)
+
+            # B
+            self.b_s[scale] = [QtWidgets.QHBoxLayout(), QtWidgets.QLineEdit(), QtWidgets.QPushButton("Set B")]
+            row =      self.b_s[scale][0]
+            text_box = self.b_s[scale][1]
+            button   = self.b_s[scale][2]
+            text_box.setFont(monospace_font)
+            text_box.setText("1.000")
+            button.clicked.connect(partial(self.send_dfdd_parameter, self.b_s_addresses[scale], text_box))
+            row.addWidget(text_box)
+            row.addWidget(button)
+            layout.addRow(row)
+
+            # w0
+            self.w0_s[scale] = [QtWidgets.QHBoxLayout(), QtWidgets.QLineEdit(), QtWidgets.QPushButton("Set w0")]
+            row =      self.w0_s[scale][0]
+            text_box = self.w0_s[scale][1]
+            button   = self.w0_s[scale][2]
+            text_box.setFont(monospace_font)
+            text_box.setText("1.000")
+            button.clicked.connect(partial(self.send_dfdd_parameter, self.w0_s_addresses[scale], text_box))
+            row.addWidget(text_box)
+            row.addWidget(button)
+            layout.addRow(row)
+
+            # w1
+            self.w1_s[scale] = [QtWidgets.QHBoxLayout(), QtWidgets.QLineEdit(), QtWidgets.QPushButton("Set w1")]
+            row =      self.w1_s[scale][0]
+            text_box = self.w1_s[scale][1]
+            button   = self.w1_s[scale][2]
+            text_box.setFont(monospace_font)
+            text_box.setText("1.000")
+            button.clicked.connect(partial(self.send_dfdd_parameter, self.w1_s_addresses[scale], text_box))
+            row.addWidget(text_box)
+            row.addWidget(button)
+            layout.addRow(row)
+
+            # w2
+            self.w2_s[scale] = [QtWidgets.QHBoxLayout(), QtWidgets.QLineEdit(), QtWidgets.QPushButton("Set w2")]
+            row =      self.w2_s[scale][0]
+            text_box = self.w2_s[scale][1]
+            button   = self.w2_s[scale][2]
+            text_box.setFont(monospace_font)
+            text_box.setText("1.000")
+            button.clicked.connect(partial(self.send_dfdd_parameter, self.w2_s_addresses[scale], text_box))
+            row.addWidget(text_box)
+            row.addWidget(button)
+            layout.addRow(row)
+
+
+        # Confidence
+        confidence_title = QtWidgets.QLabel("Confidence")
+        confidence_title.setFont(QtGui.QFont("Arial", 12, QtGui.QFont.Bold))
+        layout.addRow(confidence_title) 
+
+        self.confidence = [QtWidgets.QHBoxLayout(), QtWidgets.QLineEdit(), QtWidgets.QPushButton("Set Confidence")]
+        row =      self.confidence[0]
+        text_box = self.confidence[1]
+        button   = self.confidence[2]
+        text_box.setFont(monospace_font)
+        text_box.setText("1.000")
+        button.clicked.connect(partial(self.send_dfdd_parameter, self.confidence_address, text_box))
+        row.addWidget(text_box)
+        row.addWidget(button)
+        layout.addRow(row)
 
         self.setLayout(layout)
 
-    def send_dfdd_parameters(self, start_addr, textbox, n_precision):
-        values = self.get_values(start_addr, textbox.text(), n_precision)
-        if values is not None:
-            self.write_command.emit(values)
+    def send_dfdd_parameter(self, addr, text_box):
+        return_bytes = b""
+        val      = float(text_box.text())
+        val_fp16 = np.float16(val)
+        val_u32  = np.uint32(val_fp16.view(np.uint16))
 
-    def get_values(self, start_addr, text, n_precision):
-        try:
-            val_bytes = (int(np.round(float(text) * (1 << n_precision))) & 0xffff_ffff).to_bytes(4, 'little')
-        except ValueError:
-            QtWidgets.QMessageBox.warning(
-                self, "Invalid Input",
-                "The parameter must b a floating point number."
-            )
-            return None
-
-        addr = int(start_addr).to_bytes(2, 'little')
-
-        return {"bytes": val_bytes + addr}
+        return_bytes +=  val_u32.tobytes() + int(addr).to_bytes(2, 'little')
+        self.write_command.emit({"bytes" : return_bytes})

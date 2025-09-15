@@ -47,12 +47,7 @@ def execute(args):
     # The central channel controls the tx_binary_queue
     app = QtWidgets.QApplication([])
     app.setQuitOnLastWindowClosed(True)
-    windows = []
-    for i in range(args.maxchannels):
-        if(i == args.centralchannel):
-            windows.append(ImageDisplayWindow(rx_channel_queues[i], recorder_request_queue, tx_binary_queue))
-        else:
-            windows.append(ImageDisplayWindow(rx_channel_queues[i], None, None))
+    window = ImageDisplayWindow(rx_channel_queues, recorder_request_queue, tx_binary_queue)
 
     # FT232 Threads
     ft232h_thread = threading.Thread(target=ft232h,
@@ -64,7 +59,7 @@ def execute(args):
                                              daemon=True)
 
     # stream decoder
-    stream_decoder = StreamDecoder(rx_stream_queue, rx_channel_queues, windows, recorder_queues, recorder_request_queue)
+    stream_decoder = StreamDecoder(rx_stream_queue, rx_channel_queues, window, recorder_queues, recorder_request_queue)
     stream_decoder_thread = threading.Thread(target=stream_decoder.run,
                                              daemon=True)
 
@@ -74,8 +69,7 @@ def execute(args):
     stream_decoder_thread.start()
 
     # Run the Qt displays in the main thread.
-    for i in range(args.maxchannels):
-        windows[i].show()
+    window.show()
     app.exec_()
 
 if __name__ == '__main__':
