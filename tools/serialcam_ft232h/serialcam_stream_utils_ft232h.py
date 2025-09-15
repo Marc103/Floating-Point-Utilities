@@ -270,6 +270,7 @@ class StreamDecoder:
         os.makedirs(self.output_dir, exist_ok=True)
 
     def step_record_request(self, header_info):
+        print("HELLO")
         filename = self.output_dir + '/' + self.base_filename 
         self.remaining -= 1
 
@@ -408,8 +409,6 @@ class ImageDisplayWindow(QtWidgets.QMainWindow):
 
             tiled_image = tile_arrays(rx_channels)
 
-            
-
             #scale according to data width
             tiled_image = tiled_image >> (data_width - 8)
             # type cast as uint8
@@ -417,17 +416,12 @@ class ImageDisplayWindow(QtWidgets.QMainWindow):
             # default is just a copy to keep it alive for Qt
             image = tiled_image.copy()
 
-            if (self.color_map == "color"):
-                colormap = np.floor(np.array(colormaps.viridis) * 256).astype(np.uint8)
-                image = np.clip((rx_channel.astype(np.float32) - 40) * 7, 0, 255)
-                image = colormap[rx_channel].copy()
-                qimg = QtGui.QImage(image.data, width, height, QtGui.QImage.Format_RGB888)
-            else:
-                qimg = QtGui.QImage(image.data, width, height, QtGui.QImage.Format_Grayscale8)
-                scaled_pixmap = QtGui.QPixmap.fromImage(qimg).scaled(
-                int(width * self.image_scale),
-                int(height * self.image_scale),
-                QtCore.Qt.KeepAspectRatio)
+            qimg = QtGui.QImage(image.data, image.shape[1], image.shape[0], QtGui.QImage.Format_Grayscale8)
+            scaled_pixmap = QtGui.QPixmap.fromImage(qimg).scaled(
+            int(image.shape[1] * self.image_scale),
+            int(image.shape[0] * self.image_scale),
+            QtCore.Qt.KeepAspectRatio)
+                
 
             # todo: change color mapping
             self.image_display.setPixmap(scaled_pixmap)
