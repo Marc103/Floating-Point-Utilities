@@ -98,7 +98,8 @@ module dual_camera_wrapper #(
                 .FP_N(FP_N_IMAGE), 
                 .FP_S(FP_S_IMAGE)
             ) roi2_in (cameras_pclk_i[gi]);
-
+            
+            if(gi == 1) begin
             bilinear_xform #(
                 .WIDTH(IMAGE_WIDTH), 
                 .HEIGHT(IMAGE_HEIGHT),
@@ -113,6 +114,23 @@ module dual_camera_wrapper #(
                 .matrix_i(bilinear_matrices_i[gi]), 
                 .rst_n_i(!reader_async_fifo_rst_w[gi])
             );
+            end else begin
+             bilinear_xform #(
+                .WIDTH(IMAGE_WIDTH), 
+                .HEIGHT(IMAGE_HEIGHT),
+                .N_LINES_POW2(N_LINES_POW2),
+                .PIPE_ROW(PIPE_ROW), 
+                .PIPE_COL(PIPE_COL),
+                .PRECISION(PRECISION),
+                .CLKS_PER_PIXEL(1),
+                .PASSTHROUGH(1)
+            ) bxform (
+                .in(bilinear_xform_in), 
+                .out(roi2_in),
+                .matrix_i(bilinear_matrices_i[gi]), 
+                .rst_n_i(!reader_async_fifo_rst_w[gi])
+            );
+            end
 
             ////////////////////////////////////////////////////////////////
             // roi stage --> pixels out of camera read pipeline

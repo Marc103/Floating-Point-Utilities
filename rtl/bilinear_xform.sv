@@ -25,6 +25,9 @@
  * signed numbers, so we can dedicate more bits to the matrix values.
  * So in reality we have a -1024 <-> 1023 range.
  *
+ * PASSTHROUGH assumes no transformation. This is so that it can mimic
+ * the data movement of another bilinear_xform without the redundant logic.
+ *
  *
  */
 
@@ -48,7 +51,9 @@
     // (how many bits for decimal place) 
     parameter PRECISION = 8,
 
-    parameter CLKS_PER_PIXEL = 1
+    parameter CLKS_PER_PIXEL = 1,
+
+    parameter PASSTHROUGH = 0
  ) (
     pixel_data_interface.writer in,
     pixel_data_interface.reader out,
@@ -419,7 +424,8 @@
         .PRECISION(PRECISION),
         .WIDTH(WIDTH),
         .HEIGHT(HEIGHT),
-        .CLKS_PER_PIXEL(CLKS_PER_PIXEL)
+        .CLKS_PER_PIXEL(CLKS_PER_PIXEL),
+        .PASSTHROUGH(PASSTHROUGH)
     ) reverse_mapper (
         .clk(in.clk),
         .rst_n_i(rst_n_i),
@@ -444,7 +450,8 @@
     bilinear_interpolater #(
         .FP_M(in.FP_M),
         .FP_N(in.FP_N),
-        .FP_S(in.FP_S)
+        .FP_S(in.FP_S),
+        .PASSTHROUGH(PASSTHROUGH)
     ) bilinear_interpolater (
         .clk(in.clk),
         .row_i(w_row_0),
@@ -524,7 +531,9 @@ module reverse_mapper #(
     parameter HEIGHT = 8,
 
     // how many cycles do we have
-    parameter CLKS_PER_PIXEL = 1
+    parameter CLKS_PER_PIXEL = 1,
+
+    parameter PASSTHROUGH = 0
 ) (
     input clk,
     input rst_n_i,
@@ -627,7 +636,7 @@ module reverse_mapper #(
         acc_row_out = acc_row;
         acc_col_out = acc_col;
         
-
+        if(PASSTHROUGH == 0) begin
         for(int s = 0; s < PARALLEL_MACS; s += 1) begin
             offset = si + s;
             if(offset < 6) begin
@@ -639,6 +648,10 @@ module reverse_mapper #(
                     acc_row_out += (matrix_flatten[offset] * coord_flatten[offset]);
                 end
             end
+        end
+        end else begin
+            acc_col_out = r_col_11bit * 19'b000_0000_0000_0000_0001_0000_0000;
+            acc_row_out = r_row_11bit * 19'b000_0000_0000_0000_0001_0000_0000;
         end
         
         ////////////////////////////////////////////////////////////////
@@ -760,7 +773,8 @@ module bilinear_interpolater#(
     parameter FP_S = 0,
 
     // how many bits for decimal place for col and row fractional part
-    parameter PRECISION = 8
+    parameter PRECISION = 8,
+    parameter PASSTHROUGH = 0
 
 ) (
     input clk,
@@ -866,6 +880,8 @@ module bilinear_interpolater#(
             Q22_ = {{1'b0}, Q22_i};
         end 
         
+        if(PASSTHROUGH == 0) begin
+
         ////////////////////////////////////////////////////////////////
         // In STAGE 1 calculations
         // Qtop = Q11 + xf * (Q21 - Q11)
@@ -894,6 +910,41 @@ module bilinear_interpolater#(
         Qfinal_im_pad = {Qtop, {PRECISION{1'b0}}};
         Qfinal_im_2 =  Qfinal_im_pad + Qfinal_im_1;
         Qfinal = Qfinal_im_2[FP_M + FP_N + FP_S - 1 + PRECISION: PRECISION];
+
+        end else begin
+
+        ////////////////////////////////////////////////////////////////
+        // In STAGE 1 calculations
+        // Qtop = Q11 + xf * (Q21 - Q11)
+        col_frac_xform_pipe_1_im_0 = 0;
+
+        Qtop_im_0 = Q11_ - 0;
+        Qtop_im_1 = col_frac_xform_pipe_1_im_0 * Qtop_im_0;
+        Qtop_im_pad = {Q11_, {PRECISION{1'b0}}};
+        Qtop_im_2 = Qtop_im_pad + Qtop_im_1;
+        Qtop_next = Qtop_im_2[FP_M + FP_N + 1 - 1 + PRECISION: PRECISION];
+
+        // Qbot = Q12 + xf * (Q22 - Q12)
+        Qbot_im_0 = Q12_ - 0;
+        Qbot_im_1 = col_frac_xform_pipe_1_im_0 * Qbot_im_0;
+        Qbot_im_pad = {Q12_, {PRECISION{1'b0}}};
+        Qbot_im_2 = Qbot_im_pad + Qbot_im_1;
+        Qbot_next = Qbot_im_2[FP_M + FP_N + 1 - 1 + PRECISION: PRECISION];
+
+        ////////////////////////////////////////////////////////////////
+        // STAGE 2 calculations
+        // Qfinal = Qtop + yf(Qbot - Qtop)
+        row_frac_xform_pipe_2_im_0 = 0;
+
+        Qfinal_im_0 = Qtop - 0;
+        Qfinal_im_1 = row_frac_xform_pipe_2_im_0 * Qfinal_im_0;
+        Qfinal_im_pad = {Qtop, {PRECISION{1'b0}}};
+        Qfinal_im_2 =  Qfinal_im_pad + Qfinal_im_1;
+        Qfinal = Qfinal_im_2[FP_M + FP_N + FP_S - 1 + PRECISION: PRECISION];
+
+
+
+        end
 
     end
 

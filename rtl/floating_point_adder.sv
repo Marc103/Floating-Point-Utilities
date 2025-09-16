@@ -129,7 +129,7 @@ module floating_point_adder #(
     cvt #(
         .EXP_WIDTH(EXP_WIDTH),
         .FRAC_WIDTH(FRAC_WIDTH),
-        .SAVE_FF(SAVE_FF)
+        .SAVE_FF(0)
     ) cvt_inst (
         .clk_i(clk_i),
         .rst_i(rst_i),

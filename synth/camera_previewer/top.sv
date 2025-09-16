@@ -191,6 +191,15 @@ module top #(
     logic        i2c_init_data_valid_w   [2];
     logic        i2c_transmitter_ready_w [2];
 
+    ////////////////////////////////////////////////////////////////
+    // Dfdd constants wiring
+    logic [15:0] a  [3];
+    logic [15:0] b  [3];
+    logic [15:0] w0 [3];
+    logic [15:0] w1 [3];
+    logic [15:0] w2 [3];
+    logic [15:0] confidence;
+
     generate
         for(genvar gi = 0; gi < 2; gi++) begin
             localparam INIT_FILE = gi == 0 ? INIT_FILE_0 : INIT_FILE_1;
@@ -476,9 +485,12 @@ module top #(
     ) constants_controller (
         .rst_n_i(sys_reset_n),
         .in(command_in),
-        .k1_o(),
-        .k2_o(),
-        .k3_o(),
+        .a_o(a),
+        .b_o(b),
+        .w0_o(w0),
+        .w1_o(w1),
+        .w2_o(w2),
+        .confidence_o(confidence),
         .bilinear_matrices_o(bilinear_matrices),
         .pre_bilinear_roi_boundaries_o(pre_bilinear_roi),
         .post_bilinear_roi_boundaries_o(post_bilinear_roi)

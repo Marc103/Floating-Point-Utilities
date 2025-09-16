@@ -191,7 +191,7 @@ module top #(
     logic        i2c_transmitter_ready_w [2];
 
     generate
-        for(genvar gi = 0; gi < 2; gi++) begin
+        for(genvar gi = 0; gi < 1; gi++) begin
             localparam INIT_FILE = gi == 0 ? INIT_FILE_0 : INIT_FILE_1;
             i2c_transmitter_controller #(
                 .INIT_FILE(INIT_FILE)
@@ -245,6 +245,18 @@ module top #(
                 
         end
     endgenerate
+
+    assign i2c_init_addr_w        [1] = i2c_init_addr_w[0];
+    assign i2c_init_data_w        [1] = i2c_init_data_w[0];
+    assign i2c_init_data_valid_w  [1] = i2c_init_data_valid_w[0];
+    assign i2c_rw_bit_w           [1] = i2c_rw_bit_w[0];
+    assign i2c_tx_phases_w        [1] = i2c_tx_phases_w[0];
+    assign i2c_transmitter_ready_w[1] = i2c_transmitter_ready_w[0];
+    assign camera_1_sda = camera_0_sda;
+    assign camera_1_scl = camera_1_scl;
+
+    assign cameras_xsleep[1] = cameras_xsleep[0];
+    assign i2c_inits_done[1] = i2c_inits_done[0];
 
     ////////////////////////////////////////////////////////////////
     // ROI wiring

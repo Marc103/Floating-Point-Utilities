@@ -259,6 +259,15 @@ module top #(
     logic signed [11+PRECISION-1:0] bilinear_matrices [2][3][3];
 
     ////////////////////////////////////////////////////////////////
+    // Dfdd constants wiring
+    logic [15:0] a  [3];
+    logic [15:0] b  [3];
+    logic [15:0] w0 [3];
+    logic [15:0] w1 [3];
+    logic [15:0] w2 [3];
+    logic [15:0] confidence;
+
+    ////////////////////////////////////////////////////////////////
     // i2c shutter trig
     // Tells the i2c controllers when to release the cameras from reset.
     localparam SHUTTER_PERIOD = 6000000;
@@ -363,30 +372,20 @@ module top #(
     logic rd_sof_sbi_delay;
     always@(posedge core_clk) rd_sof_sbi_delay <= rd_sof_sbi_w;
 
-    logic [15:0] fp16_in_0;
-    logic [15:0] fp16_in_1;
+    logic [7:0] uint8_in_0;
+    logic [7:0] uint8_in_1;
     logic        valid_in_0;
     
-    uint8_fp16_converter cam_0_uint8_fp16_converter (
-        .clk_i(core_clk),
-        .rst_i(sys_reset),
+    always@(posedge core_clk) begin
+        uint8_in_0 <= rd_channels_sbi_w[0];
+        uint8_in_1 <= rd_channels_sbi_w[1];
 
-        .uint8_i(rd_channels_sbi_w[0]),
-        .valid_i(rd_valid_sbi_w),
-
-        .fp16_o(fp16_in_0),
-        .valid_o(valid_in_0)
-    );
-
-    uint8_fp16_converter cam_1_uint8_fp16_converter (
-        .clk_i(core_clk),
-        .rst_i(sys_reset),
-
-        .uint8_i(rd_channels_sbi_w[1]),
-        .valid_i(rd_valid_sbi_w),
-
-        .fp16_o(fp16_in_1)
-    );
+        if(sys_reset) begin
+            valid_in_0 <= 0;
+        end else begin
+            valid_in_0 <= rd_valid_sbi_w;
+        end
+    end
 
     logic [15:0] col_in;
     logic [15:0] col_in_next;
@@ -436,16 +435,15 @@ module top #(
     logic [15:0] row_out;
     logic        valid_out;
     
-    logic [15:0] w [2][3];
-    logic [15:0] w_t;
-    logic [15:0] a [2];
-    logic [15:0] b [2];
+    logic [15:0] w_dual [2][3];
+    logic [15:0] a_dual [2];
+    logic [15:0] b_dual [2];
 
-    assign w = '{'{16'hbc00,16'h3c00,16'h3c00},
-                 '{16'hbc00,16'h3c00,16'h3c00}};
-    assign w_t = 16'h4200;
-    assign a = '{16'h4000,16'h4000};
-    assign b = '{16'h3c00, 16'h3c00};
+    assign a_dual = '{a[0], a[1]};
+    assign b_dual = '{b[0], b[1]};
+
+    assign w_dual = '{'{w0[0], w1[0], w2[0]},
+                      '{w0[1], w1[1], w2[1]}};
 
     /*
     dual_scale_wrapper_fp16 #(
@@ -485,8 +483,8 @@ module top #(
         .clk_i(core_clk),
         .rst_i(sys_reset),
 
-        .i_rho_plus_i (fp16_in_0[15:0]),
-        .i_rho_minus_i(fp16_in_1[15:0]),
+        .i_rho_plus_i (uint8_in_0),
+        .i_rho_minus_i(uint8_in_1),
         .col_i        (col_in_0),
         .row_i        (row_in_0),
         .valid_i      (valid_in_0),
@@ -669,9 +667,12 @@ module top #(
     ) constants_controller (
         .rst_n_i(sys_reset_n),
         .in(command_in),
-        .k1_o(),
-        .k2_o(),
-        .k3_o(),
+        .a_o(a),
+        .b_o(b),
+        .w0_o(w0),
+        .w1_o(w1),
+        .w2_o(w2),
+        .confidence_o(confidence),
         .bilinear_matrices_o(bilinear_matrices),
         .pre_bilinear_roi_boundaries_o(pre_bilinear_roi),
         .post_bilinear_roi_boundaries_o(post_bilinear_roi)

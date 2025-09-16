@@ -7,7 +7,7 @@ verific -sv ../../rtl/third_party/i2c_initializer.sv \
             ../../rtl/third_party/camera_reader.sv \
             ../../rtl/third_party/RAM_2Port.v \
             ../../rtl/third_party/async_fifo.v \
-            ../../rtl/third_party/word_concatenator.v \
+            ../../rtl/third_party/word_concatenator.sv \
             ../../rtl/third_party/dual_camera_wrapper.sv \
             ../../rtl/third_party/util.v \
             \
@@ -72,6 +72,8 @@ verific -sv ../../rtl/third_party/i2c_initializer.sv \
             ../../projects/dfdd/preprocessor_hybrid_uint8_to_fp16.sv \
             ../../projects/dfdd/custom_burt_h_sint14_to_sint18.sv \
             ../../projects/dfdd/custom_burt_v_sint18_to_sint22.sv \
+            ../../projects/dfdd/box_h_0_ones_fp16.sv \
+            ../../projects/dfdd/box_v_0_ones_fp16.sv \
             \
             ../../rtl/zero_latency_buffer.sv \
             ../../rtl/stream_buffer.sv \
@@ -80,6 +82,4 @@ verific -sv ../../rtl/third_party/i2c_initializer.sv \
             pll.sv \
             top.sv
 
-#synth_ecp5 -top top -json top.json
-synth_ecp5 -top top -json top.json
-
+synth_ecp5 -top top -json top.json 

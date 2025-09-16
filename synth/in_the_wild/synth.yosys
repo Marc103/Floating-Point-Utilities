@@ -1,3 +1,4 @@
+
 verific -vlog-define NO_INCLUDES
 verific -sv -lib +/ecp5/cells_sim.v +/ecp5/cells_bb.v  +/ecp5/cells_ff.vh  +/ecp5/cells_io.vh
 verific -vlog-undef NO_INCLUDES
@@ -7,7 +8,7 @@ verific -sv ../../rtl/third_party/i2c_initializer.sv \
             ../../rtl/third_party/camera_reader.sv \
             ../../rtl/third_party/RAM_2Port.v \
             ../../rtl/third_party/async_fifo.v \
-            ../../rtl/third_party/word_concatenator.v \
+            ../../rtl/third_party/word_concatenator.sv \
             ../../rtl/third_party/dual_camera_wrapper.sv \
             ../../rtl/third_party/util.v \
             \
@@ -28,6 +29,7 @@ verific -sv ../../rtl/third_party/i2c_initializer.sv \
             ../../rtl/fp16_u8_converter.sv \
             ../../rtl/uint8_fp16_converter.sv \
             ../../rtl/uint8_12_to_fp16_converter.sv \
+            ../../rtl/sint10_12_to_fp16_converter.sv \
             \
             ../../projects/dfdd/zero_scale_fp16.sv \
             ../../projects/dfdd/zero_inserter.sv   \
@@ -62,11 +64,17 @@ verific -sv ../../rtl/third_party/i2c_initializer.sv \
             ../../projects/dfdd/dual_scale_wrapper_fp16.sv \
             ../../projects/dfdd/upsampler_sh_h_0_fp16.sv \
             ../../projects/dfdd/upsampler_sh_v_0_fp16.sv \
+            ../../projects/dfdd/upsampler_sh_v_1_fp16.sv \
+            ../../projects/dfdd/upsampler_sh_h_1_fp16.sv \
             ../../projects/dfdd/custom_box_h_3_uint8_to_uint10.sv \
             ../../projects/dfdd/custom_box_v_3_uint10_to_uint12.sv \
             ../../projects/dfdd/custom_burt_h_uint12_to_uint16.sv \
             ../../projects/dfdd/custom_burt_v_uint16_to_uint20.sv \
             ../../projects/dfdd/preprocessor_hybrid_uint8_to_fp16.sv \
+            ../../projects/dfdd/custom_burt_h_sint14_to_sint18.sv \
+            ../../projects/dfdd/custom_burt_v_sint18_to_sint22.sv \
+            ../../projects/dfdd/box_h_0_ones_fp16.sv \
+            ../../projects/dfdd/box_v_0_ones_fp16.sv \
             \
             ../../rtl/zero_latency_buffer.sv \
             ../../rtl/stream_buffer.sv \
@@ -76,5 +84,44 @@ verific -sv ../../rtl/third_party/i2c_initializer.sv \
             top.sv
 
 #synth_ecp5 -top top -json top.json
-synth_ecp5 -top top -json top.json
+
+synth_ecp5 -run begin:map_gates -top top 
+
+#map_gates:
+techmap -map +/techmap.v -map +/ecp5/arith_map.v
+iopadmap -bits -outpad OB I:O -inpad IB O:I -toutpad OBZ ~T:I:O -tinoutpad BB ~T:O:I:B A:top    
+attrmvcp -attr src -attr LOC t:OB %x:+[O] t:OBZ %x:+[O] t:BB %x:+[B]
+attrmvcp -attr src -attr LOC -driven t:IB %x:+[I]
+opt   
+
+#map_ffs:
+opt_clean
+dfflegalize -cell $_DFF_?_ 01 -cell $_DFF_?P?_ r -cell $_SDFF_?P?_ r 
+zinit -all w:* t:$_DFF_?_ t:$_DFFE_??_ t:$_SDFF*    
+techmap -D NO_LUT -map +/ecp5/cells_map.v
+opt_expr -undriven -mux_undef
+simplemap
+lattice_gsr
+attrmvcp -copy -attr syn_useioff
+opt_clean
+
+# map_luts:      
+techmap -map +/ecp5/latches_map.v    
+abc9 -W 300 -D 1000000000 -dff
+clean
+
+# map_cells:
+techmap -map +/ecp5/cells_map.v    
+opt_lut_ins -tech lattice
+clean
+
+#check:
+autoname
+hierarchy -check
+stat
+check -noinit
+blackbox =A:whitebox
+
+# json:
+write_json top.json
 

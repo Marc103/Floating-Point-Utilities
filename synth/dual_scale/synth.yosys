@@ -7,7 +7,7 @@ verific -sv ../../rtl/third_party/i2c_initializer.sv \
             ../../rtl/third_party/camera_reader.sv \
             ../../rtl/third_party/RAM_2Port.v \
             ../../rtl/third_party/async_fifo.v \
-            ../../rtl/third_party/word_concatenator.v \
+            ../../rtl/third_party/word_concatenator.sv \
             ../../rtl/third_party/dual_camera_wrapper.sv \
             ../../rtl/third_party/util.v \
             \
@@ -82,6 +82,4 @@ verific -sv ../../rtl/third_party/i2c_initializer.sv \
             pll.sv \
             top.sv
 
-#synth_ecp5 -top top -json top.json
-synth_ecp5 -top top -json top.json
-
+synth_ecp5 -top top -json top.json 
