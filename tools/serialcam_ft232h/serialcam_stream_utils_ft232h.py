@@ -384,6 +384,8 @@ class ImageDisplayWindow(QtWidgets.QMainWindow):
         self.setStatusBar(self.status)
 
     def update_image(self):
+        # image queue
+        # element : [ [header_info, image_data], [header_info, image_data], [header_info, image_data], ...]
         while True:
             try:
                 rx_channel_pkgs = []
