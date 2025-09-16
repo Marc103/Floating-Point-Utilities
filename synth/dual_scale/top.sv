@@ -191,7 +191,7 @@ module top #(
     logic        i2c_transmitter_ready_w [2];
 
     generate
-        for(genvar gi = 0; gi < 1; gi++) begin
+        for(genvar gi = 0; gi < 2; gi++) begin
             localparam INIT_FILE = gi == 0 ? INIT_FILE_0 : INIT_FILE_1;
             i2c_transmitter_controller #(
                 .INIT_FILE(INIT_FILE)
@@ -245,18 +245,6 @@ module top #(
                 
         end
     endgenerate
-
-    assign i2c_init_addr_w        [1] = i2c_init_addr_w[0];
-    assign i2c_init_data_w        [1] = i2c_init_data_w[0];
-    assign i2c_init_data_valid_w  [1] = i2c_init_data_valid_w[0];
-    assign i2c_rw_bit_w           [1] = i2c_rw_bit_w[0];
-    assign i2c_tx_phases_w        [1] = i2c_tx_phases_w[0];
-    assign i2c_transmitter_ready_w[1] = i2c_transmitter_ready_w[0];
-    assign camera_1_sda = camera_0_sda;
-    assign camera_1_scl = camera_1_scl;
-
-    assign cameras_xsleep[1] = cameras_xsleep[0];
-    assign i2c_inits_done[1] = i2c_inits_done[0];
 
     ////////////////////////////////////////////////////////////////
     // ROI wiring
@@ -446,7 +434,7 @@ module top #(
     logic [15:0] col_out;
     logic [15:0] row_out;
     logic        valid_out;
-    
+
     logic [15:0] w_dual [2][3];
     logic [15:0] a_dual [2];
     logic [15:0] b_dual [2];
@@ -484,9 +472,20 @@ module top #(
         .valid_o(valid_out)
     );
 
+    logic [15:0] fp16_z_filtered_out;
+    assign fp16_z_filtered_out = (fp16_c_out >= confidence) ? fp16_z_out : 16'b0111_1111_1111_1111;
+
     // fp16 to u8 conversions -------------------------------
+    /*
     logic wr_sof_sbo_delay;
     always@(posedge core_clk) wr_sof_sbo_delay <= ((col_out == 0) && (row_out == 0));
+    */
+    assign wr_channels_sbo_w[0] = rd_channels_sbi_w[0];
+    assign wr_valids_sbo_w  [0] = rd_valid_sbi_w;
+    assign wr_sof_sbo_w         = rd_sof_sbi_w;
+
+    assign wr_clks_sbo_w = '{core_clk, core_clk};
+    assign wr_rsts_sbo_w = '{sys_reset, sys_reset};
    
 
     fp16_u8_converter #(
@@ -495,29 +494,27 @@ module top #(
         .clk_i(core_clk),
         .rst_i(sys_reset),
 
-        .fp16_i(fp16_z_out),
+        .fp16_i(fp16_z_filtered_out),
         .valid_i(valid_out),
 
-        .u8_o(wr_channels_sbo_w[0]),
-        .valid_o(wr_valids_sbo_w[0])
+        .u8_o(wr_channels_sbo_w[1]),
+        .valid_o(wr_valids_sbo_w[1])
     );
 
+    /*
     fp16_u8_converter #(
         .LEAD_EXPONENT_UNBIASED(7)
     ) c_fp16_u8_converter (
         .clk_i(core_clk),
         .rst_i(sys_reset),
 
-        .fp16_i(fp16_c_out),
+        .fp16_i(fp16_c_out),   
         .valid_i(valid_out),
 
         .u8_o(wr_channels_sbo_w[1]),
         .valid_o(wr_valids_sbo_w[1])
     );
-    
-    assign wr_clks_sbo_w = '{core_clk, core_clk};
-    assign wr_rsts_sbo_w = '{sys_reset, sys_reset};
-    assign wr_sof_sbo_w     = wr_sof_sbo_delay;
+    */
 
     ////////////////////////////////////////////////////////////////
     // Output Stream Buffer

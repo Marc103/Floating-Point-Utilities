@@ -176,13 +176,11 @@ module controller #(
                 16'he1: w2_next[1] = data[15:0];
 
                 // scale 2
-                /*
                 16'ha2: a_next [2] = data[15:0];
                 16'hb2: b_next [2] = data[15:0];
                 16'hc2: w0_next[2] = data[15:0];
                 16'hd2: w1_next[2] = data[15:0];
                 16'he2: w2_next[2] = data[15:0];
-                */
 
                 // confidence minimum
                 16'h50: confidence_next = data[15:0];
