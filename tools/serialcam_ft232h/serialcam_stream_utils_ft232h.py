@@ -9,6 +9,10 @@ import queue
 from serialcam_ft232h_dialogs import *
 import colormaps
 import math
+from live_image_viewer import LiveImageViewer
+import matplotlib.pyplot as plt
+plt.ion()
+plt.show(block=False)
 
 def printhex(arr):
     hex_vals = [f"{val:02x}" for val in arr]
@@ -355,7 +359,7 @@ class ImageDisplayWindow(QtWidgets.QMainWindow):
     image_scale: float = 1.0
     color_map: str = "gray"      # "gray" or "color"
 
-    def __init__(self, image_queue, command_queue, write_command_queue, channel_name="", parent=None):
+    def __init__(self, maxchannels, image_queue, command_queue, write_command_queue, channel_name="", parent=None):
         """
         this window reads numpy arrays from image_queue containing images to display.
         Commands are sent from 'command_queue' to the different interface threads (the ft232
@@ -383,6 +387,12 @@ class ImageDisplayWindow(QtWidgets.QMainWindow):
         self.status.setFont(monospace_font)
         self.setStatusBar(self.status)
 
+        # Matplotlib windows
+        self.mp_windows = []
+        for c in range(maxchannels):
+            self.mp_windows.append(LiveImageViewer(cmap="gray", vmin=0, vmax=255, title=("Channel "+str(c))))
+        plt.show(block=False)
+
     def update_image(self):
         # image queue
         # element : [ [header_info, image_data], [header_info, image_data], [header_info, image_data], ...]
@@ -405,32 +415,13 @@ class ImageDisplayWindow(QtWidgets.QMainWindow):
             except queue.Empty:
                 return
             
-            rx_channels = []
-            for c in range(0, channels):
-                rx_channels.append(rx_channel_pkgs[c][1])
+            for c in range(channels):
+                frame = rx_channel_pkgs[c][1]
+                self.mp_windows[c].update_image(frame)
 
-            tiled_image = tile_arrays(rx_channels)
+            #plt.pause(0.001)
 
-            #scale according to data width
-            tiled_image = tiled_image >> (data_width - 8)
-            # type cast as uint8
-            tiled_image = tiled_image.astype(dtype=np.uint8)
-            # default is just a copy to keep it alive for Qt
-            image = tiled_image.copy()
-
-            qimg = QtGui.QImage(image.data, image.shape[1], image.shape[0], QtGui.QImage.Format_Grayscale8)
-            scaled_pixmap = QtGui.QPixmap.fromImage(qimg).scaled(
-            int(image.shape[1] * self.image_scale),
-            int(image.shape[0] * self.image_scale),
-            QtCore.Qt.KeepAspectRatio)
-                
-
-            # todo: change color mapping
-            self.image_display.setPixmap(scaled_pixmap)
-            self.adjustSize()
-    
-            
-
+        
     def _add_menu(self):
         # File menu
         menubar = self.menuBar()
