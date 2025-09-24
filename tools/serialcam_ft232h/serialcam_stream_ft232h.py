@@ -47,7 +47,7 @@ def execute(args):
     # The central channel controls the tx_binary_queue
     app = QtWidgets.QApplication([])
     app.setQuitOnLastWindowClosed(True)
-    window = ImageDisplayWindow(rx_channel_queues, recorder_request_queue, tx_binary_queue)
+    window = ImageDisplayWindow(args.maxchannels, rx_channel_queues, recorder_request_queue, tx_binary_queue)
 
     # FT232 Threads
     ft232h_thread = threading.Thread(target=ft232h,
