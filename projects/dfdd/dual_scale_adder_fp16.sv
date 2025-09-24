@@ -147,7 +147,7 @@ logic [FP_WIDTH_REG - 1 : 0] w_adder_data_w [1][2];
 assign v_adder_data_w = '{'{rd_channels_w[0], rd_channels_w[2]}};
 assign w_adder_data_w = '{'{rd_channels_w[1], rd_channels_w[3]}};
 
-v_w_adder_1_fp16  v_adder (
+v_w_adder_1_fp16  #(.SAME_SIGN(1)) v_adder (
     .clk_i(clk_i),
     .rst_i(rst_i),
 
@@ -163,7 +163,7 @@ v_w_adder_1_fp16  v_adder (
     .valid_o(valid_o)
 );
 
-v_w_adder_1_fp16  w_adder (
+v_w_adder_1_fp16 #(.SAME_SIGN(1)) w_adder (
     .clk_i(clk_i),
     .rst_i(rst_i),
 

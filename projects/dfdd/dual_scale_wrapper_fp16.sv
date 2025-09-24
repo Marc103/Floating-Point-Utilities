@@ -272,7 +272,7 @@ module dual_scale_wrapper_fp16 #(
     logic [15:0]                 v_added_boxh_row_w;
     logic                        v_added_boxh_valid_w;
     
-    box_h_0_ones_fp16 v_added_box_h (
+    box_h_0_ones_fp16 #(.SAME_SIGN(1)) v_added_box_h (
         .clk_i(clk_i),
         .rst_i(rst_i),
 
@@ -293,7 +293,7 @@ module dual_scale_wrapper_fp16 #(
     logic [15:0]                 w_added_boxh_row_w;
     logic                        w_added_boxh_valid_w;
     
-    box_h_0_ones_fp16 w_added_box_h (
+    box_h_0_ones_fp16 #(.SAME_SIGN(1)) w_added_box_h (
         .clk_i(clk_i),
         .rst_i(rst_i),
 
@@ -377,7 +377,7 @@ module dual_scale_wrapper_fp16 #(
     logic [15:0]                 v_added_box_row_w;
     logic                        v_added_box_valid_w;
 
-    box_v_0_ones_fp16 v_added_box_v (
+    box_v_0_ones_fp16 #(.SAME_SIGN(1)) v_added_box_v (
         .clk_i(clk_i),
         .rst_i(rst_i),
 
@@ -398,7 +398,7 @@ module dual_scale_wrapper_fp16 #(
     logic [15:0]                 w_added_box_row_w;
     logic                        w_added_box_valid_w;
 
-    box_v_0_ones_fp16 w_added_box_v (
+    box_v_0_ones_fp16 #(.SAME_SIGN(1)) w_added_box_v (
         .clk_i(clk_i),
         .rst_i(rst_i),
 

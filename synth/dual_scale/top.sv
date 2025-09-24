@@ -449,7 +449,7 @@ module top #(
     dual_scale_wrapper_fp16 #(
         .IMAGE_WIDTH(ROI_WIDTH),
         .IMAGE_HEIGHT(ROI_HEIGHT),
-        .DX_DY_ENABLE(1),
+        .DX_DY_ENABLE(DX_DY_ENABLE),
         .BORDER_ENABLE(0)
     ) dual_scale (
         .clk_i(core_clk),

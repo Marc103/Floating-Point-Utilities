@@ -23,8 +23,8 @@ class DualImageGenerator #(type T_0, type T_1);
             img_1 = new();
             case(seq)
                 0: begin
-                    img_0.file_path = "../test_images/capture_36_camera0.ppm";
-                    img_1.file_path = "../test_images/capture_36_camera1.ppm";
+                    img_0.file_path = "../test_images/capture_36_camera0_50x50.ppm";
+                    img_1.file_path = "../test_images/capture_36_camera1_50x50.ppm";
                 end
                 1: begin
                     img_0.file_path = "../test_images/rho_plus_0.ppm";

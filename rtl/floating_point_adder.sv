@@ -48,13 +48,17 @@
  * We encode 3 additional bits of information, carry, lead and round bit. The order of the bits
  * is most convenient. Originally I wanted to call it 'Full form' but that abbreviates as FF
  * which can be confused with flip-flop.
- *
+ * 
+ * If we can guarantee that both fp_a_i and fp_b_i are have the same sign always, in conjunction
+ * with the subnormal approximation, we can heavily simplify the nr stage, saving lots of resources.
+ * See the 'SAME_SIGN'
  */
 
 module floating_point_adder #(
     parameter EXP_WIDTH  = 0,
     parameter FRAC_WIDTH = 0,
     parameter SAVE_FF = 1,
+    parameter SAME_SIGN = 0,
 
     ////////////////////////////////////////////////////////////////
     // Local parameters
@@ -195,6 +199,8 @@ module floating_point_adder #(
     logic [FP_WIDTH_TOT - 1 : 0] nr_rr_fp_w;
     logic                        nr_rr_valid_w;
 
+    generate 
+    if(SAME_SIGN == 0) begin
     nr #(
         .EXP_WIDTH(EXP_WIDTH),
         .FRAC_WIDTH(FRAC_WIDTH),
@@ -209,6 +215,23 @@ module floating_point_adder #(
         .fp_o(nr_rr_fp_w),
         .valid_o(nr_rr_valid_w)
     );
+    end else begin
+    nrss #(
+        .EXP_WIDTH(EXP_WIDTH),
+        .FRAC_WIDTH(FRAC_WIDTH),
+        .SAVE_FF(0)
+    ) nr_inst (
+        .clk_i(clk_i),
+        .rst_i(rst_i),
+
+        .fp_i(cvu_nr_fp_w),
+        .valid_i(cvu_nr_valid_w),
+
+        .fp_o(nr_rr_fp_w),
+        .valid_o(nr_rr_valid_w)
+    );
+    end
+    endgenerate
 
     ////////////////////////////////////////////////////////////////
     // 7 - rr
@@ -1013,6 +1036,111 @@ module nr #(
                         end
                     end
                 end
+            end
+
+            if(fp_exp_const == EXP_MAX) begin
+                fp_exp = EXP_MAX;
+            end
+        end
+    end
+    ////////////////////////////////////////////////////////////////
+    // Output
+    assign fp_o    = {fp_sign, fp_exp, fp_frac_ex};
+    assign valid_o = (SAVE_FF == 0) ? valid_reg : valid_i;
+endmodule
+
+// Normalize Results Same Sign (NR) - stage 7
+/* Knowing that both values are of the same sign we can skip
+ * having a priority encoder + variable shifter and instead
+ * just check the carry bit and for 0!
+ * [ < ] - EXP_WIDTH
+ * [ + ] - EXP_WIDTH
+ *
+ */
+module nrss #(
+    parameter EXP_WIDTH = 0,
+    parameter FRAC_WIDTH = 0,
+    parameter SAVE_FF = 0,
+    ////////////////////////////////////////////////////////////////
+    // Local parameters
+    parameter FRAC_EX_WIDTH = 1 + 1 + FRAC_WIDTH + 1,
+    parameter FRAC_EX_IDX_LSB = 0,
+    parameter FRAC_EX_IDX_MSB = FRAC_EX_WIDTH + FRAC_EX_IDX_LSB - 1,
+    parameter EXP_IDX_LSB = FRAC_EX_WIDTH,
+    parameter EXP_IDX_MSB = EXP_WIDTH + EXP_IDX_LSB - 1,
+    parameter SIGN_IDX = EXP_WIDTH + FRAC_EX_WIDTH,
+    parameter FP_WIDTH_TOT = 1 + EXP_WIDTH + FRAC_EX_WIDTH,
+    parameter CARRY_IDX = 1 + FRAC_WIDTH + 1,
+    parameter LEAD_IDX = FRAC_WIDTH + 1,
+    parameter EXP_MAX = (2**EXP_WIDTH) - 1
+) (
+    input clk_i,
+    input rst_i,
+
+    input  [FP_WIDTH_TOT - 1 : 0] fp_i,
+    input                         valid_i,
+
+    output [FP_WIDTH_TOT - 1 : 0] fp_o,
+    output                        valid_o
+);
+    ////////////////////////////////////////////////////////////////
+    // Input Registers
+    logic [FP_WIDTH_TOT - 1 : 0] fp_reg;
+    logic                        valid_reg;
+
+    always_ff @(posedge clk_i) begin
+        if(SAVE_FF == 0) begin
+            fp_reg        <= fp_i;
+            if(rst_i) begin
+                valid_reg <= 0;
+            end else begin
+                valid_reg <= valid_i;
+            end
+        end
+    end
+
+    ////////////////////////////////////////////////////////////////
+    // Main
+    logic                                  fp_sign;
+    logic unsigned [EXP_WIDTH - 1 : 0]     fp_exp;
+    logic unsigned [EXP_WIDTH - 1 : 0]     fp_exp_const;
+    logic          [FRAC_EX_WIDTH - 1 : 0] fp_frac_ex;
+    logic          [FRAC_EX_WIDTH - 1 : 0] fp_frac_ex_const;
+
+    always_comb begin
+        if(SAVE_FF == 0) begin
+            fp_sign    = fp_reg[SIGN_IDX];
+            fp_exp     = fp_reg[EXP_IDX_MSB : EXP_IDX_LSB];
+            fp_frac_ex = fp_reg[FRAC_EX_IDX_MSB : FRAC_EX_IDX_LSB];
+
+            fp_exp_const = fp_exp[EXP_WIDTH - 1 : 0];
+            fp_frac_ex_const = fp_frac_ex;
+
+            if(fp_frac_ex_const[CARRY_IDX]) begin
+                fp_frac_ex = fp_frac_ex_const >> 1;
+                fp_exp = fp_exp_const + 1;
+            end else if(fp_frac_ex_const == 0) begin
+                fp_frac_ex = 0;
+                fp_exp = 0;
+            end
+
+            if(fp_exp_const == EXP_MAX) begin
+                fp_exp = EXP_MAX;
+            end
+        end else begin
+            fp_sign    = fp_i[SIGN_IDX];
+            fp_exp     = fp_i[EXP_IDX_MSB : EXP_IDX_LSB];
+            fp_frac_ex = fp_i[FRAC_EX_IDX_MSB : FRAC_EX_IDX_LSB];
+
+            fp_exp_const = fp_exp[EXP_WIDTH - 1 : 0];
+            fp_frac_ex_const = fp_frac_ex;
+
+            if(fp_frac_ex_const[CARRY_IDX]) begin
+                fp_frac_ex = fp_frac_ex_const >> 1;
+                fp_exp = fp_exp_const + 1;
+            end else if(fp_frac_ex_const == 0) begin
+                fp_frac_ex = 0;
+                fp_exp = 0;
             end
 
             if(fp_exp_const == EXP_MAX) begin

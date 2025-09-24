@@ -95,8 +95,8 @@ module dfdd_tb();
 
     ////////////////////////////////////////////////////////////////
     // localparams
-    localparam IMAGE_WIDTH  = 512;
-    localparam IMAGE_HEIGHT = 400;
+    localparam IMAGE_WIDTH  = 50;
+    localparam IMAGE_HEIGHT = 50;
 
     localparam EXP_WIDTH = 5;
     localparam FRAC_WIDTH = 10;
@@ -247,8 +247,8 @@ module dfdd_tb();
 
         ////////////////////////////////////////////////////////////////
         // Set up dump 
-        //$dumpfile("waves.vcd");
-        //$dumpvars(0, dfdd_tb);
+        $dumpfile("waves.vcd");
+        $dumpvars(0, dfdd_tb);
 
         ////////////////////////////////////////////////////////////////
         // Reset logic

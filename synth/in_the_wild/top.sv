@@ -474,7 +474,7 @@ module top #(
     );
     */
 
-    
+    /*
     preprocessing_hybrid_uint8_to_fp16 #(
         .IMAGE_WIDTH(ROI_WIDTH),
         .IMAGE_HEIGHT(ROI_HEIGHT),
@@ -494,6 +494,26 @@ module top #(
         .col_o  (col_out),
         .row_o  (row_out),
         .valid_o(valid_out)
+    );
+    */
+
+    logic [15:0] a_test;
+    logic [15:0] b_test;
+    assign a_test = uint8_in_0 * uint8_in_1;
+    assign b_test = uint8_in_0 * uint8_in_1;
+
+    floating_point_adder #(
+        .EXP_WIDTH(5),
+        .FRAC_WIDTH(10),
+        .SAME_SIGN(1)
+    ) test (
+        .clk_i(core_clk),
+        .rst_i(sys_reset),
+
+        .fp_a_i(a_test),
+        .fp_b_i(b_test),
+
+        .fp_o(fp16_z_out)
     );
     
 

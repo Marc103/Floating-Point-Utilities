@@ -98,6 +98,9 @@ end
  * New Feature! See 'optimal_convolution_floating_point_generator.py' to generate a wrapper file that figures
  * all of this out automatically just with knowing the kernel values.
  *
+ * 'SAME_SIGN' if all values can be guaranteed to be the same sign, use SAME_SIGN = 1, this reduces the floating
+ * point adder utilization by 50%.
+ *
  * Designed to work with a Window Fetcher.
  */
 
@@ -120,6 +123,8 @@ end
     parameter OPTIMAL_ADD_LEVELS = $clog2(LINEAR_WIDTH_2CLOG2),    // *local
     
     parameter [0:0] OPTIMAL_ADD  [OPTIMAL_ADD_LEVELS][LINEAR_WIDTH_2CLOG2],
+
+    parameter SAME_SIGN = 0,
 
     ////////////////////////////////////////////////////////////////
     // Local parameters
@@ -340,7 +345,8 @@ end
                     // genuine adder
                     floating_point_adder #(
                         .EXP_WIDTH(EXP_WIDTH),
-                        .FRAC_WIDTH(FRAC_WIDTH)
+                        .FRAC_WIDTH(FRAC_WIDTH),
+                        .SAME_SIGN(SAME_SIGN)
                     ) adder (
                         .clk_i(clk_i),
                         .rst_i(rst_i),
@@ -423,7 +429,8 @@ end
             // genuine adder
             floating_point_adder #(
                 .EXP_WIDTH(EXP_WIDTH),
-                .FRAC_WIDTH(FRAC_WIDTH)
+                .FRAC_WIDTH(FRAC_WIDTH),
+                .SAME_SIGN(SAME_SIGN)
             ) last_adder (
                 .clk_i(clk_i),
                 .rst_i(rst_i),

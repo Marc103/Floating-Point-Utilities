@@ -83,45 +83,5 @@ verific -sv ../../rtl/third_party/i2c_initializer.sv \
             pll.sv \
             top.sv
 
-#synth_ecp5 -top top -json top.json
-
-synth_ecp5 -run begin:map_gates -top top 
-
-#map_gates:
-techmap -map +/techmap.v -map +/ecp5/arith_map.v
-iopadmap -bits -outpad OB I:O -inpad IB O:I -toutpad OBZ ~T:I:O -tinoutpad BB ~T:O:I:B A:top    
-attrmvcp -attr src -attr LOC t:OB %x:+[O] t:OBZ %x:+[O] t:BB %x:+[B]
-attrmvcp -attr src -attr LOC -driven t:IB %x:+[I]
-opt   
-
-#map_ffs:
-opt_clean
-dfflegalize -cell $_DFF_?_ 01 -cell $_DFF_?P?_ r -cell $_SDFF_?P?_ r 
-zinit -all w:* t:$_DFF_?_ t:$_DFFE_??_ t:$_SDFF*    
-techmap -D NO_LUT -map +/ecp5/cells_map.v
-opt_expr -undriven -mux_undef
-simplemap
-lattice_gsr
-attrmvcp -copy -attr syn_useioff
-opt_clean
-
-# map_luts:      
-techmap -map +/ecp5/latches_map.v    
-abc9 -W 300 -D 1000000000 -dff
-clean
-
-# map_cells:
-techmap -map +/ecp5/cells_map.v    
-opt_lut_ins -tech lattice
-clean
-
-#check:
-autoname
-hierarchy -check
-stat
-check -noinit
-blackbox =A:whitebox
-
-# json:
-write_json top.json
+synth_ecp5 -noflatten -top top -json top.json
 

@@ -12,6 +12,7 @@ module burt_h_0_fp16 #(
     parameter WINDOW_WIDTH = 5,
     parameter WINDOW_HEIGHT = 1,
 
+    parameter SAME_SIGN = 0,
     ////////////////////////////////////////////////////////////////
     // Local parameters
     parameter FP_WIDTH_REG = 1 + FRAC_WIDTH + EXP_WIDTH,
@@ -58,7 +59,9 @@ module burt_h_0_fp16 #(
         .WINDOW_HEIGHT(WINDOW_HEIGHT),
 
         .OPTIMAL_MULT(OPTIMAL_MULT),
-        .OPTIMAL_ADD(OPTIMAL_ADD)
+        .OPTIMAL_ADD(OPTIMAL_ADD),
+
+        .SAME_SIGN(SAME_SIGN)
     ) inst (
         .clk_i(clk_i),
         .rst_i(rst_i),
