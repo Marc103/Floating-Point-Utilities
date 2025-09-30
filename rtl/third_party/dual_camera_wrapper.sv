@@ -122,8 +122,7 @@ module dual_camera_wrapper #(
                 .PIPE_ROW(PIPE_ROW), 
                 .PIPE_COL(PIPE_COL),
                 .PRECISION(PRECISION),
-                .CLKS_PER_PIXEL(1),
-                .PASSTHROUGH(1)
+                .CLKS_PER_PIXEL(1)
             ) bxform (
                 .in(bilinear_xform_in), 
                 .out(roi2_in),

@@ -501,11 +501,10 @@ module top #(
     logic [15:0] b_test;
     assign a_test = uint8_in_0 * uint8_in_1;
     assign b_test = uint8_in_0 * uint8_in_1;
-
+    
     floating_point_adder #(
         .EXP_WIDTH(5),
-        .FRAC_WIDTH(10),
-        .SAME_SIGN(1)
+        .FRAC_WIDTH(10)
     ) test (
         .clk_i(core_clk),
         .rst_i(sys_reset),
@@ -516,6 +515,31 @@ module top #(
         .fp_o(fp16_z_out)
     );
     
+    logic [15:0] a_tests [8];
+    logic [15:0] b_tests [8];
+    logic [15:0] r_tests [8];
+
+    assign a_tests = '{a_test, a_test, a_test, a_test, a_test, a_test, a_test, a_test};
+    assign b_tests = '{b_test, b_test, b_test, b_test, b_test, b_test, b_test, b_test};
+    assign r_tests = a_tests;
+
+    logic [15:0] col_center;
+    logic [15:0] row_center;
+    /*
+    radial_a_b_fp16 #(.NO_ZONES(8)) r (
+        .a_i(a_tests),
+        .b_i(b_tests),
+        .r_squared_i(r_tests),
+
+        .col_i(col_in_0),
+        .row_i(row_in_0),
+        .col_center_i(a_test),
+        .row_center_i(b_test),
+
+        .a_o(fp16_z_out),
+        .b_o(fp16_c_out)
+    );
+    */
 
     /*
     assign fp16_z_out = fp16_in_0;
@@ -681,7 +705,7 @@ module top #(
     assign command_in.addr = ft232h_ext_des_data[47:32];
     assign command_in.data = ft232h_ext_des_data[31:0];
     assign command_in.valid = ft232h_ext_des_valid;
-
+    /*
     controller #(
         .PRECISION(PRECISION)
     ) constants_controller (
@@ -697,12 +721,12 @@ module top #(
         .pre_bilinear_roi_boundaries_o(pre_bilinear_roi),
         .post_bilinear_roi_boundaries_o(post_bilinear_roi)
     );
-
+    
     defparam constants_controller.PRE_XFORM_ROI_DIMS = '{IMAGE_HEIGHT, IMAGE_WIDTH};
     defparam constants_controller.POST_XFORM_ROI_DIMS = '{ROI_HEIGHT, ROI_WIDTH};
     defparam constants_controller.DEFAULT_PRE_XFORM_ROI_CORNER = '{0, (RAW_IMAGE_WIDTH - IMAGE_WIDTH) / 2};
     defparam constants_controller.DEFAULT_POST_XFORM_ROI_CORNER = '{0, (IMAGE_WIDTH - ROI_WIDTH) / 2};
-
+    */
     ////////////////////////////////////////////////////////////////
     // debug outputs going to logic analyzer
     always_comb begin

@@ -980,6 +980,10 @@ module nr #(
     logic          [FRAC_EX_WIDTH - 1 : 0] fp_frac_ex;
     logic          [FRAC_EX_WIDTH - 1 : 0] fp_frac_ex_const;
 
+    logic unsigned [EXP_WIDTH - 1 : 0] shift;
+    logic signed   [EXP_WIDTH     : 0] diff;
+
+
     always_comb begin
         if(SAVE_FF == 0) begin
             fp_sign    = fp_reg[SIGN_IDX];
@@ -989,28 +993,31 @@ module nr #(
             fp_exp_const = fp_exp[EXP_WIDTH - 1 : 0];
             fp_frac_ex_const = fp_frac_ex;
 
+            shift = 0;
+            for(int i = 0; i <= LEAD_IDX; i++) begin
+                if(fp_frac_ex_const[i]) begin
+                    shift = LEAD_IDX - i;
+                end
+            end
+            diff = fp_exp_const - shift;
+
             if(fp_frac_ex_const[CARRY_IDX]) begin
                 fp_frac_ex = fp_frac_ex_const >> 1;
                 fp_exp = fp_exp_const + 1;
-            end else if (fp_frac_ex_const[LEAD_IDX]) begin
-                // do nothing
             end else begin
-                for(int i = 0; i < LEAD_IDX; i++) begin
-                    if(fp_frac_ex_const[i]) begin
-                        if(fp_exp_const > (LEAD_IDX - i)) begin
-                            fp_frac_ex = fp_frac_ex_const << (LEAD_IDX - i);
-                            fp_exp = fp_exp_const - (LEAD_IDX - i);
-                        end else begin
-                            fp_frac_ex = 0;
-                            fp_exp     = 0;
-                        end
-                    end
+                if(diff > 0) begin
+                    fp_frac_ex = fp_frac_ex_const << shift;
+                    fp_exp = fp_exp_const - shift;
+                end else begin
+                    fp_frac_ex = 0;
+                    fp_exp = 0;
                 end
             end
 
             if(fp_exp_const == EXP_MAX) begin
                 fp_exp = EXP_MAX;
             end
+
         end else begin
             fp_sign    = fp_i[SIGN_IDX];
             fp_exp     = fp_i[EXP_IDX_MSB : EXP_IDX_LSB];
@@ -1019,22 +1026,24 @@ module nr #(
             fp_exp_const = fp_exp[EXP_WIDTH - 1 : 0];
             fp_frac_ex_const = fp_frac_ex;
 
+            shift = 0;
+            for(int i = 0; i <= LEAD_IDX; i++) begin
+                if(fp_frac_ex_const[i]) begin
+                    shift = LEAD_IDX - i;
+                end
+            end
+            diff = fp_exp_const - shift;
+
             if(fp_frac_ex_const[CARRY_IDX]) begin
                 fp_frac_ex = fp_frac_ex_const >> 1;
                 fp_exp = fp_exp_const + 1;
-            end else if (fp_frac_ex_const[LEAD_IDX]) begin
-                // do nothing
             end else begin
-                for(int i = 0; i < LEAD_IDX; i++) begin
-                    if(fp_frac_ex_const[i]) begin
-                        if(fp_exp_const > (LEAD_IDX - i)) begin
-                            fp_frac_ex = fp_frac_ex_const << (LEAD_IDX - i);
-                            fp_exp = fp_exp_const - (LEAD_IDX - i);
-                        end else begin
-                            fp_frac_ex = 0;
-                            fp_exp     = 0;
-                        end
-                    end
+                if(diff > 0) begin
+                    fp_frac_ex = fp_frac_ex_const << shift;
+                    fp_exp = fp_exp_const - shift;
+                end else begin
+                    fp_frac_ex = 0;
+                    fp_exp = 0;
                 end
             end
 

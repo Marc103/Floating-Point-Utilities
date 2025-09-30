@@ -14,19 +14,27 @@
  * (0x82, 0x83) - top-left corner of roi post-bilinear-xform roi (y, x).
  *
  *
- * DfDD constants - each 2 bytes
+ * DfDD constants, 2 scale setup - each 2 bytes
  * ----------------------------
- * 0xA0 -> 0xA2 - A
- * 0xB0 -> 0xB2 - B
- * 0xC0 -> 0xC2 - w0
- * 0xD0 -> 0xD2 - w1
- * 0xE0 -> 0xE2 - w2
- * 
+ * A and B are variable, with 8 zones
  *
+ * 0xA0 -> 0xA7 - Scale 0, A values per zone
+ * 0xA8 -> 0xAF - Scale 1, A values per zone
+ * 0xB0 -> 0xB7 - Scale 0, B values per zone
+ * 0xB8 -> 0xBF - Scale 1, B values per zone
+ * 0x70 -> 0x77 - radius squared values
+ * 0xC0 -> 0xC1 - w0
+ * 0xD0 -> 0xD1 - w1
+ * 0xE0 -> 0xE1 - w2
+ * 
  * Confidence minimum
  * ----------------------------
  * 0x50 - 2 bytes
  *
+ * Col and Row center
+ * ----------------------------
+ * 0x60 - col center
+ * 0x61 - row center
  *
  * rest has no effect.
  *
@@ -41,11 +49,18 @@ module controller #(
     parameter PRECISION = 0,
 
     // Default Values for Constants
-    parameter [15:0] A  [3] = '{16'h3c00, 16'h3c00, 16'h3c00},
-    parameter [15:0] B  [3] = '{16'h3c00, 16'h3c00, 16'h3c00},
-    parameter [15:0] W0 [3] = '{16'h3c00, 16'h3c00, 16'h3c00},
-    parameter [15:0] W1 [3] = '{16'h3c00, 16'h3c00, 16'h3c00},
-    parameter [15:0] W2 [3] = '{16'h3c00, 16'h3c00, 16'h3c00},
+    parameter [15:0] A  [2][8] = {default: 16'h3c00},
+
+    parameter [15:0] B  [2][8] = {default: 16'h3c00},
+
+    parameter [15:0] R_SQUARED[8] = '{16'h0000, 16'h0000, 16'h0000, 16'h0000, 16'h0000, 16'h0000, 16'h0000, 16'h0000},
+
+    parameter [15:0] COL_CENTER = 16'h00C8,
+    parameter [15:0] ROW_CENTER = 16'h00C8,
+
+    parameter [15:0] W0 [2] = '{16'h3c00, 16'h3c00},
+    parameter [15:0] W1 [2] = '{16'h3c00, 16'h3c00},
+    parameter [15:0] W2 [2] = '{16'h3c00, 16'h3c00},
 
     parameter [15:0] DEFAULT_CONFIDENCE_MINIMUM = 0,
 
@@ -66,11 +81,14 @@ module controller #(
 
     command_interface.writer in,
 
-    output [15:0] a_o  [3],
-    output [15:0] b_o  [3],
-    output [15:0] w0_o [3],
-    output [15:0] w1_o [3],
-    output [15:0] w2_o [3],
+    output [15:0] a_o            [2][8],
+    output [15:0] b_o            [2][8],
+    output [15:0] r_squared_o     [8],
+    output [15:0] w0_o [2],
+    output [15:0] w1_o [2],
+    output [15:0] w2_o [2],
+    output [15:0] col_center_o,
+    output [15:0] row_center_o,
 
     output [11+PRECISION-1:0] bilinear_matrices_o [2][3][3],
 
@@ -91,17 +109,23 @@ module controller #(
     logic [31:0] data_next;
     logic valid_next;
 
-    logic [15:0] a  [3];
-    logic [15:0] b  [3];
-    logic [15:0] w0 [3];
-    logic [15:0] w1 [3];
-    logic [15:0] w2 [3];
+    logic [15:0] a  [2][8];
+    logic [15:0] b  [2][8];
+    logic [15:0] r_squared [8];
+    logic [15:0] col_center;
+    logic [15:0] row_center;
+    logic [15:0] w0 [2];
+    logic [15:0] w1 [2];
+    logic [15:0] w2 [2];
 
-    logic [15:0] a_next  [3];
-    logic [15:0] b_next  [3];
-    logic [15:0] w0_next [3];
-    logic [15:0] w1_next [3];
-    logic [15:0] w2_next [3];
+    logic [15:0] a_next  [2][8];
+    logic [15:0] b_next  [2][8];
+    logic [15:0] r_squared_next [8];
+    logic [15:0] col_center_next;
+    logic [15:0] row_center_next;
+    logic [15:0] w0_next [2];
+    logic [15:0] w1_next [2];
+    logic [15:0] w2_next [2];
 
     logic [MATRIX_WIDTH-1:0] bilinear_matrices [2][3][3];
     logic [MATRIX_WIDTH-1:0] bilinear_matrices_next [2][3][3];
@@ -115,12 +139,17 @@ module controller #(
     logic [15:0] confidence_next;
 
     always_comb begin
+        int i;
+
         addr_next = in.addr;
         data_next = in.data;
         valid_next = in.valid;
 
         a_next = a;
         b_next = b;
+        r_squared_next = r_squared;
+        col_center_next = col_center;
+        row_center_next = row_center;
         w0_next = w0;
         w1_next = w1;
         w2_next = w2;
@@ -161,29 +190,12 @@ module controller #(
                 16'h27: bilinear_matrices_next[1][2][1] = data[MATRIX_WIDTH-1:0];
                 16'h28: bilinear_matrices_next[1][2][2] = data[MATRIX_WIDTH-1:0];
 
-                // scale 0
-                16'ha0: a_next [0] = data[15:0];
-                16'hb0: b_next [0] = data[15:0];
-                16'hc0: w0_next[0] = data[15:0];
-                16'hd0: w1_next[0] = data[15:0];
-                16'he0: w2_next[0] = data[15:0];
-
-                // scale 1
-                16'ha1: a_next [1] = data[15:0];
-                16'hb1: b_next [1] = data[15:0];
-                16'hc1: w0_next[1] = data[15:0];
-                16'hd1: w1_next[1] = data[15:0];
-                16'he1: w2_next[1] = data[15:0];
-
-                // scale 2
-                16'ha2: a_next [2] = data[15:0];
-                16'hb2: b_next [2] = data[15:0];
-                16'hc2: w0_next[2] = data[15:0];
-                16'hd2: w1_next[2] = data[15:0];
-                16'he2: w2_next[2] = data[15:0];
-
                 // confidence minimum
                 16'h50: confidence_next = data[15:0];
+
+                // col and row centers
+                16'h60: col_center_next = data[15:0];
+                16'h61: row_center_next = data[15:0];
 
                 // camera 0 ROI settings
                 16'h80: pre_bilinear_roi_corner_next[0] = data[15:0];
@@ -193,6 +205,50 @@ module controller #(
                 default: ;
             endcase
         end
+        // Scale 0 - A
+        i = 0;
+        for(int a = 16'hA0; a < 16'hA8; a++) begin
+            if(addr == a[15:0]) begin
+                a_next[0][i] = data[15:0];
+            end
+            i++;
+        end
+
+        // Scale 1 - A
+        i = 0;
+        for(int a = 16'hA8; a < 16'hB0; a++) begin
+            if(addr == a[15:0]) begin
+                a_next[1][i] = data[15:0];
+            end
+            i++;
+        end
+
+        // Scale 0 - B
+        i = 0;
+        for(int a = 16'hB0; a < 16'hB8; a++) begin
+            if(addr == a[15:0]) begin
+                b_next[0][i] = data[15:0];
+            end
+            i++;
+        end
+
+        // Scale 1 - B
+        i = 0;
+        for(int a = 16'hB8; a < 16'hC0; a++) begin
+            if(addr == a[15:0]) begin
+                b_next[1][i] = data[15:0];
+            end
+            i++;
+        end
+
+        // r squared
+        i = 0;
+        for(int a = 16'h70; a < 16'h78; a++) begin
+            if(addr == a[15:0]) begin
+                r_squared_next[i] = data[15:0];
+            end
+            i++;
+        end 
 
         if(!rst_n_i) begin
             valid_next = 0;
@@ -201,9 +257,13 @@ module controller #(
 
             a_next  = A;
             b_next  = B;
+            r_squared_next =  R_SQUARED;
             w0_next = W0;
             w1_next = W1;
             w2_next = W2;
+
+            col_center_next = COL_CENTER;
+            row_center_next = ROW_CENTER;
 
             confidence_next = DEFAULT_CONFIDENCE_MINIMUM;
 
@@ -222,9 +282,13 @@ module controller #(
 
         a  <= a_next;
         b  <= b_next;
+        r_squared <= r_squared_next;
         w0 <= w0_next;
         w1 <= w1_next;
         w2 <= w2_next;
+
+        col_center <= col_center_next;
+        row_center <= row_center_next;
 
         bilinear_matrices <= bilinear_matrices_next;
 
@@ -246,6 +310,9 @@ module controller #(
 
     assign a_o  = a;
     assign b_o  = b;
+    assign r_squared_o = r_squared;
+    assign col_center_o = col_center;
+    assign row_center_o = row_center;
     assign w0_o = w0;
     assign w1_o = w1;
     assign w2_o = w2;

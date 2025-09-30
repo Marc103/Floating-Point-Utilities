@@ -7,6 +7,7 @@ module dual_scale_wrapper_fp16 #(
 
     parameter DX_DY_ENABLE = 0,
     parameter BORDER_ENABLE= 0,
+    parameter NO_ZONES = 1,
     ////////////////////////////////////////////////////////////////
     // Local parameters
     parameter FP_WIDTH_REG = 1 + FRAC_WIDTH + EXP_WIDTH
@@ -20,10 +21,13 @@ module dual_scale_wrapper_fp16 #(
     input  [15:0]                 row_i,
     input                         valid_i,
 
-    input [FP_WIDTH_REG - 1 : 0] w_i [2][3],
+    input [FP_WIDTH_REG - 1 : 0] w_i        [2][3],
     input [FP_WIDTH_REG - 1 : 0] w_t_i,
-    input [FP_WIDTH_REG - 1 : 0] a_i [2],
-    input [FP_WIDTH_REG - 1 : 0] b_i [2],
+    input [FP_WIDTH_REG - 1 : 0] a_i        [2][NO_ZONES],
+    input [FP_WIDTH_REG - 1 : 0] b_i        [2][NO_ZONES],
+    input [15:0]                 r_squared_i   [NO_ZONES],
+    input [15:0]                 col_center_i,
+    input [15:0]                 row_center_i,
 
     output [FP_WIDTH_REG - 1 : 0] z_o,
     output [FP_WIDTH_REG - 1 : 0] c_o,
@@ -81,7 +85,8 @@ module dual_scale_wrapper_fp16 #(
         .IMAGE_WIDTH  (IMAGE_WIDTH),
         .IMAGE_HEIGHT (IMAGE_HEIGHT),
         .BORDER_ENABLE(BORDER_ENABLE),
-        .DX_DY_ENABLE (DX_DY_ENABLE)
+        .DX_DY_ENABLE (DX_DY_ENABLE),
+        .NO_ZONES(NO_ZONES)
     ) zero_scale (
         .clk_i(clk_i),
         .rst_i(rst_i),
@@ -95,6 +100,9 @@ module dual_scale_wrapper_fp16 #(
         .w_i(w_i[0]),
         .a_i(a_i[0]),
         .b_i(b_i[0]),
+        .r_squared_i(r_squared_i),
+        .col_center_i(col_center_i),
+        .row_center_i(row_center_i),
 
         .i_a_downsample_o  (i_a_0_downsample_data_w),
         .i_t_downsample_o  (i_t_0_downsample_data_w),
@@ -125,7 +133,8 @@ module dual_scale_wrapper_fp16 #(
         .IMAGE_WIDTH (IMAGE_WIDTH),
         .IMAGE_HEIGHT(IMAGE_HEIGHT),
         .BORDER_ENABLE(BORDER_ENABLE),
-        .DX_DY_ENABLE(DX_DY_ENABLE)
+        .DX_DY_ENABLE(DX_DY_ENABLE),
+        .NO_ZONES(NO_ZONES)
     ) first_scale (
         .clk_i(clk_i),
         .rst_i(rst_i),
@@ -133,6 +142,9 @@ module dual_scale_wrapper_fp16 #(
         .w_i(w_i[1]),
         .a_i(a_i[1]),
         .b_i(b_i[1]),
+        .r_squared_i(r_squared_i),
+        .col_center_i(col_center_i),
+        .row_center_i(row_center_i),
 
         .i_a_i  (i_a_0_downsample_data_w),
         .i_t_i  (i_t_0_downsample_data_w),

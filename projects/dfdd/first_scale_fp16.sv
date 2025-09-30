@@ -11,6 +11,7 @@ module first_scale_fp16 #(
 
     parameter DX_DY_ENABLE = 0,
     parameter BORDER_ENABLE = 1,
+    parameter NO_ZONES = 1,
 
     ////////////////////////////////////////////////////////////////
     // Local parameters
@@ -28,8 +29,11 @@ module first_scale_fp16 #(
     input                         valid_i,
 
     input [FP_WIDTH_REG - 1 : 0]  w_i [3], // weights
-    input [FP_WIDTH_REG - 1 : 0]  a_i,
-    input [FP_WIDTH_REG - 1 : 0]  b_i,     
+    input [FP_WIDTH_REG - 1 : 0]  a_i         [NO_ZONES],
+    input [FP_WIDTH_REG - 1 : 0]  b_i         [NO_ZONES],
+    input [15:0]                  r_squared_i [NO_ZONES],
+    input [15:0]                  col_center_i,
+    input [15:0]                  row_center_i,       
 
     output [FP_WIDTH_REG - 1 : 0] i_a_downsample_o,
     output [FP_WIDTH_REG - 1 : 0] i_t_downsample_o,
@@ -1550,6 +1554,26 @@ module first_scale_fp16 #(
     logic [15:0]                 v_row_w  [3];
     logic                        v_valid_w[3];
 
+    logic [FP_WIDTH_REG - 1 : 0] a_radial_w;
+    logic [FP_WIDTH_REG - 1 : 0] b_radial_w;
+    logic [FP_WIDTH_REG - 1 : 0] b_radial_delay_w;
+
+    radial_a_b_fp16 #(
+        .NO_ZONES(NO_ZONES)
+    ) radial_a_b (
+        .a_i(a_i),
+        .b_i(b_i),
+        .r_squared_i(r_squared_i),
+        .col_i(laplacian_col_w),
+        .row_i(laplacian_row_w),
+        .col_center_i(col_center_i),
+        .row_center_i(row_center_i),
+
+        .a_o(a_radial_w),
+        .b_o(b_radial_w)
+
+    );
+
     floating_point_multiplier #(
         .EXP_WIDTH (EXP_WIDTH),
         .FRAC_WIDTH(FRAC_WIDTH)
@@ -1557,10 +1581,20 @@ module first_scale_fp16 #(
         .clk_i(clk_i),
         .rst_i(rst_i),
         .fp_a_i (laplacian_data_w),
-        .fp_b_i (a_i),
+        .fp_b_i (a_radial_w),
         .valid_i(laplacian_valid_w),
         .fp_o   (v_data_w[0]),
         .valid_o(v_valid_w[0])
+    );
+
+    floating_point_multiplier_z #(
+        .EXP_WIDTH(0),
+        .FRAC_WIDTH(15)
+    ) b_radial_delay (
+        .clk_i(clk_i),
+        .rst_i(rst_i),
+        .fp_a_i(b_radial_w),
+        .fp_o  (b_radial_delay_w)
     );
 
     floating_point_multiplier_z #(
@@ -1771,7 +1805,7 @@ module first_scale_fp16 #(
         .clk_i(clk_i),
         .rst_i(rst_i),
         .fp_a_i(v_data_w[0]),
-        .fp_b_i(b_i),
+        .fp_b_i(b_radial_delay_w),
         .fp_o(v_b_data_w)
     );
 

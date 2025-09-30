@@ -260,11 +260,14 @@ module top #(
 
     ////////////////////////////////////////////////////////////////
     // Dfdd constants wiring
-    logic [15:0] a  [3];
-    logic [15:0] b  [3];
-    logic [15:0] w0 [3];
-    logic [15:0] w1 [3];
-    logic [15:0] w2 [3];
+    logic [15:0] a  [2][8];
+    logic [15:0] b  [2][8];
+    logic [15:0] r_squared [8];
+    logic [15:0] w0 [2];
+    logic [15:0] w1 [2];
+    logic [15:0] w2 [2];
+    logic [15:0] col_center;
+    logic [15:0] row_center;
     logic [15:0] confidence;
 
     ////////////////////////////////////////////////////////////////
@@ -436,11 +439,6 @@ module top #(
     logic        valid_out;
 
     logic [15:0] w_dual [2][3];
-    logic [15:0] a_dual [2];
-    logic [15:0] b_dual [2];
-
-    assign a_dual = '{a[0], a[1]};
-    assign b_dual = '{b[0], b[1]};
 
     assign w_dual = '{'{w0[0], w1[0], w2[0]},
                       '{w0[1], w1[1], w2[1]}};
@@ -450,7 +448,8 @@ module top #(
         .IMAGE_WIDTH(ROI_WIDTH),
         .IMAGE_HEIGHT(ROI_HEIGHT),
         .DX_DY_ENABLE(DX_DY_ENABLE),
-        .BORDER_ENABLE(0)
+        .BORDER_ENABLE(0),
+        .NO_ZONES(8)
     ) dual_scale (
         .clk_i(core_clk),
         .rst_i(sys_reset),
@@ -462,8 +461,11 @@ module top #(
         .valid_i      (valid_in_0),
 
         .w_i  (w_dual),
-        .a_i  (a_dual),
-        .b_i  (b_dual),
+        .a_i  (a),
+        .b_i  (b),
+        .r_squared_i(r_squared),
+        .col_center_i(col_center),
+        .row_center_i(row_center),
 
         .z_o    (fp16_z_out),
         .c_o    (fp16_c_out),
@@ -628,9 +630,12 @@ module top #(
         .in(command_in),
         .a_o(a),
         .b_o(b),
+        .r_squared_o(r_squared),
         .w0_o(w0),
         .w1_o(w1),
         .w2_o(w2),
+        .col_center_o(col_center),
+        .row_center_o(row_center),
         .confidence_o(confidence),
         .bilinear_matrices_o(bilinear_matrices),
         .pre_bilinear_roi_boundaries_o(pre_bilinear_roi),
