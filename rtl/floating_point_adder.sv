@@ -337,6 +337,7 @@ module sgm #(
     logic                               tmp_round;
 
     logic unsigned [EXP_WIDTH - 1 : 0]  exp_diff;
+    logic signed   [EXP_WIDTH : 0]      exp_const_diff;
     
     always_comb begin
         fp_a_sign  = fp_a_reg[SIGN_IDX];
@@ -369,7 +370,9 @@ module sgm #(
         tmp_frac  = fp_a_frac;
         tmp_round = fp_a_round;
 
-        if(fp_a_exp < fp_b_exp) begin
+        exp_const_diff = fp_a_exp - fp_b_exp;
+
+        if(exp_const_diff[EXP_WIDTH]) begin
             fp_a_sign  = fp_b_sign;
             fp_a_exp   = fp_b_exp;
             fp_a_carry = fp_b_carry;
