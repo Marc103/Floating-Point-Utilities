@@ -45,7 +45,7 @@ module floating_point_adder_z #(
                 end
             end
         end else begin
-            // 2 stage 
+            // 1 stage 
             fp_a_reg[0]  <= fp_a_i;
             fp_a_reg[1]  <= fp_a_reg[0];
             fp_a_reg[2]  <= fp_a_reg[1];
@@ -63,7 +63,7 @@ module floating_point_adder_z #(
     
     ////////////////////////////////////////////////////////////////
     // Output
-    assign fp_o    = (SAVE_FF == 0) ? fp_a_reg[6] : fp_a_reg[2];
-    assign valid_o = (SAVE_FF == 0) ? valid_reg[6] : valid_reg[2];
+    assign fp_o    = (SAVE_FF == 0) ? fp_a_reg[6] : fp_a_reg[0];
+    assign valid_o = (SAVE_FF == 0) ? valid_reg[6] : valid_reg[0];
 endmodule
 

@@ -37,7 +37,7 @@ module top #(
     parameter BUFFER_DEPTH_I = 32,
 
     // Output Stream Buffer
-    parameter CHANNELS_O       = 2,
+    parameter CHANNELS_O       = 1,
     parameter DATA_WIDTH_O     = 8,
     parameter BUFFER_DEPTH_O   = 2**16,
 
@@ -156,8 +156,8 @@ module top #(
 
     ////////////////////////////////////////////////////////////////
     // Core clock 
-    // either select the 60 MHz pll generated clock or ?
-    assign core_clk = clk_pll;
+    // either select the 60 MHz pll generated clock or camera pclk
+    assign core_clk = camera_0_pclk;
     assign ft232_clk = clk_pll;
 
     ////////////////////////////////////////////////////////////////
@@ -260,9 +260,9 @@ module top #(
 
     ////////////////////////////////////////////////////////////////
     // Dfdd constants wiring
-    logic [15:0] a  [2][8];
-    logic [15:0] b  [2][8];
-    logic [15:0] r_squared [8];
+    logic [15:0] a  [2][16];
+    logic [15:0] b  [2][16];
+    logic [15:0] r_squared [16];
     logic [15:0] w0 [2];
     logic [15:0] w1 [2];
     logic [15:0] w2 [2];
@@ -449,7 +449,7 @@ module top #(
         .IMAGE_HEIGHT(ROI_HEIGHT),
         .DX_DY_ENABLE(DX_DY_ENABLE),
         .BORDER_ENABLE(0),
-        .NO_ZONES(8)
+        .NO_ZONES(16)
     ) dual_scale (
         .clk_i(core_clk),
         .rst_i(sys_reset),
@@ -474,20 +474,38 @@ module top #(
         .valid_o(valid_out)
     );
 
+    logic [15:0] col_delay;
+    logic [15:0] row_delay;
+    logic [15:0] fp16_z_delay;
+    logic [15:0] fp16_c_delay;
+    logic        valid_delay;
+
+    always@(posedge core_clk) begin
+        col_delay <= col_out;
+        row_delay <= row_out;
+        fp16_z_delay <= fp16_z_out;
+        fp16_c_delay <= fp16_c_out;
+        if(sys_reset) begin
+            valid_delay <= 0;
+        end else begin
+            valid_delay <= valid_out;
+        end
+        
+    end
+
     logic [15:0] fp16_z_filtered_out;
-    assign fp16_z_filtered_out = (fp16_c_out >= confidence) ? fp16_z_out : 16'b0111_1111_1111_1111;
+    assign fp16_z_filtered_out = (fp16_c_delay >= confidence) ? fp16_z_delay : 16'b0111_1111_1111_1111;
 
     // fp16 to u8 conversions -------------------------------
-    /*
     logic wr_sof_sbo_delay;
-    always@(posedge core_clk) wr_sof_sbo_delay <= ((col_out == 0) && (row_out == 0));
-    */
-    assign wr_channels_sbo_w[0] = rd_channels_sbi_w[0];
-    assign wr_valids_sbo_w  [0] = rd_valid_sbi_w;
-    assign wr_sof_sbo_w         = rd_sof_sbi_w;
+    always@(posedge core_clk) wr_sof_sbo_delay <= ((col_delay == 0) && (row_delay == 0));
+    
+    //assign wr_channels_sbo_w[0] = rd_channels_sbi_w[0];
+    //assign wr_valids_sbo_w  [0] = rd_valid_sbi_w;
+    assign wr_sof_sbo_w         = wr_sof_sbo_delay;
 
-    assign wr_clks_sbo_w = '{core_clk, core_clk};
-    assign wr_rsts_sbo_w = '{sys_reset, sys_reset};
+    assign wr_clks_sbo_w = '{core_clk};
+    assign wr_rsts_sbo_w = '{sys_reset};
    
 
     fp16_u8_converter #(
@@ -497,10 +515,10 @@ module top #(
         .rst_i(sys_reset),
 
         .fp16_i(fp16_z_filtered_out),
-        .valid_i(valid_out),
+        .valid_i(valid_delay),
 
-        .u8_o(wr_channels_sbo_w[1]),
-        .valid_o(wr_valids_sbo_w[1])
+        .u8_o(wr_channels_sbo_w[0]),
+        .valid_o(wr_valids_sbo_w[0])
     );
 
     /*
@@ -536,7 +554,7 @@ module top #(
         .wr_valids_i  (wr_valids_sbo_w),
         .wr_sof_i     (wr_sof_sbo_w),
 
-        .rd_clk_i     (core_clk),
+        .rd_clk_i     (ft232_clk),
         .rd_rst_i     (sys_reset),
         .rd_stall_i   (rd_stall_sbo_sbd_w),
         .rd_channels_o(rd_channels_sbo_sbd_w),
@@ -562,7 +580,7 @@ module top #(
         .DES_CHANNEL_DATA_WIDTH(DES_CHANNEL_DATA_WIDTH),
         .MAGIC_NUM(MAGIC_NUM)
     ) stream_channel_deserializer (
-        .rd_clk_i     (core_clk),
+        .rd_clk_i     (ft232_clk),
         .rd_rst_i     (sys_reset),
 
         .rd_stall_o   (rd_stall_sbo_sbd_w),

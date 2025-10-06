@@ -133,7 +133,7 @@ module floating_point_adder #(
     cvt #(
         .EXP_WIDTH(EXP_WIDTH),
         .FRAC_WIDTH(FRAC_WIDTH),
-        .SAVE_FF(0)
+        .SAVE_FF(SAVE_FF)
     ) cvt_inst (
         .clk_i(clk_i),
         .rst_i(rst_i),
@@ -204,7 +204,7 @@ module floating_point_adder #(
     nr #(
         .EXP_WIDTH(EXP_WIDTH),
         .FRAC_WIDTH(FRAC_WIDTH),
-        .SAVE_FF(0)
+        .SAVE_FF(SAVE_FF)
     ) nr_inst (
         .clk_i(clk_i),
         .rst_i(rst_i),
@@ -219,7 +219,7 @@ module floating_point_adder #(
     nrss #(
         .EXP_WIDTH(EXP_WIDTH),
         .FRAC_WIDTH(FRAC_WIDTH),
-        .SAVE_FF(0)
+        .SAVE_FF(SAVE_FF)
     ) nr_inst (
         .clk_i(clk_i),
         .rst_i(rst_i),

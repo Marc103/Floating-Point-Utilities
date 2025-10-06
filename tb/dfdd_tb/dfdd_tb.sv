@@ -87,6 +87,10 @@ import scoreboards_pkg::*;
 `include "sint10_12_to_fp16_converter.sv"
 `include "box_h_0_ones_fp16.sv"
 `include "box_v_0_ones_fp16.sv"
+`include "box_h_0_ones_9x9_fp16.sv"
+`include "box_v_0_ones_9x9_fp16.sv"
+`include "box_h_0_ones_11_fp16.sv"
+`include "box_v_0_ones_11_fp16.sv"
 `include "radial_a_b_fp16.sv"
 
 ////////////////////////////////////////////////////////////////
@@ -140,19 +144,19 @@ module dfdd_tb();
     // DUT
     logic [15:0] w [2][3];
     logic [15:0] w_t;
-    logic [15:0] a [2][8];
-    logic [15:0] b [2][8];
-    logic [15:0] r_squared[8];
+    logic [15:0] a [2][16];
+    logic [15:0] b [2][16];
+    logic [15:0] r_squared[16];
     logic [15:0] col_center;
     logic [15:0] row_center;
 
 
     assign w = '{'{16'h2c0b,16'h2e38,16'h2fdd},
                  '{16'h33d4,16'h3385,16'h3398}};
-    assign a = '{{16'h3c79,16'h3c79,16'h3c79,16'h3c79,16'h3c79,16'h3c79,16'h3c79,16'h3c79},
-                 {16'h3ea0,16'h3ea0,16'h3ea0,16'h3ea0,16'h3ea0,16'h3ea0,16'h3ea0,16'h3ea0}};
-    assign b = '{{16'h4562,16'h4562,16'h4562,16'h4562,16'h4562,16'h4562,16'h4562,16'h4562},
-                 {16'h410b,16'h410b,16'h410b,16'h410b,16'h410b,16'h410b,16'h410b,16'h410b}};
+    assign a = '{{16'h3c79,16'h3c79,16'h3c79,16'h3c79,16'h3c79,16'h3c79,16'h3c79,16'h3c79,16'h3c79,16'h3c79,16'h3c79,16'h3c79,16'h3c79,16'h3c79,16'h3c79,16'h3c79},
+                 {16'h3ea0,16'h3ea0,16'h3ea0,16'h3ea0,16'h3ea0,16'h3ea0,16'h3ea0,16'h3ea0,16'h3ea0,16'h3ea0,16'h3ea0,16'h3ea0,16'h3ea0,16'h3ea0,16'h3ea0,16'h3ea0}};
+    assign b = '{{16'h4562,16'h4562,16'h4562,16'h4562,16'h4562,16'h4562,16'h4562,16'h4562,16'h4562,16'h4562,16'h4562,16'h4562,16'h4562,16'h4562,16'h4562,16'h4562},
+                 {16'h410b,16'h410b,16'h410b,16'h410b,16'h410b,16'h410b,16'h410b,16'h410b,16'h410b,16'h410b,16'h410b,16'h410b,16'h410b,16'h410b,16'h410b,16'h410b}};
     assign r_squared = {default : 16'h0000};
     assign col_center = 25;
     assign row_center = 25;
@@ -207,7 +211,7 @@ module dfdd_tb();
         .IMAGE_HEIGHT(IMAGE_HEIGHT),
         .DX_DY_ENABLE(1),
         .BORDER_ENABLE(0),
-        .NO_ZONES(8)
+        .NO_ZONES(16)
     ) dual_scale (
         .clk_i(clk),
         .rst_i(rst),

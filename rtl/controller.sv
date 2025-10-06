@@ -16,13 +16,13 @@
  *
  * DfDD constants, 2 scale setup - each 2 bytes
  * ----------------------------
- * A and B are variable, with 8 zones
+ * A and B are variable, with 16 zones
  *
- * 0xA0 -> 0xA7 - Scale 0, A values per zone
- * 0xA8 -> 0xAF - Scale 1, A values per zone
- * 0xB0 -> 0xB7 - Scale 0, B values per zone
- * 0xB8 -> 0xBF - Scale 1, B values per zone
- * 0x70 -> 0x77 - radius squared values
+ * 0xA0 -> 0xAF - Scale 0, A values per zone
+ * 0x90 -> 0x9F - Scale 1, A values per zone
+ * 0xB0 -> 0xBF - Scale 0, B values per zone
+ * 0xF0 -> 0xFF - Scale 1, B values per zone
+ * 0x70 -> 0x7F - radius squared values
  * 0xC0 -> 0xC1 - w0
  * 0xD0 -> 0xD1 - w1
  * 0xE0 -> 0xE1 - w2
@@ -49,11 +49,11 @@ module controller #(
     parameter PRECISION = 0,
 
     // Default Values for Constants
-    parameter [15:0] A  [2][8] = {default: 16'h3c00},
+    parameter [15:0] A  [2][16] = {default: 16'h3c00},
 
-    parameter [15:0] B  [2][8] = {default: 16'h3c00},
+    parameter [15:0] B  [2][16] = {default: 16'h3c00},
 
-    parameter [15:0] R_SQUARED[8] = '{16'h0000, 16'h0000, 16'h0000, 16'h0000, 16'h0000, 16'h0000, 16'h0000, 16'h0000},
+    parameter [15:0] R_SQUARED[16] = '{default : 16'h0000},
 
     parameter [15:0] COL_CENTER = 16'h00C8,
     parameter [15:0] ROW_CENTER = 16'h00C8,
@@ -81,9 +81,9 @@ module controller #(
 
     command_interface.writer in,
 
-    output [15:0] a_o            [2][8],
-    output [15:0] b_o            [2][8],
-    output [15:0] r_squared_o     [8],
+    output [15:0] a_o            [2][16],
+    output [15:0] b_o            [2][16],
+    output [15:0] r_squared_o       [16],
     output [15:0] w0_o [2],
     output [15:0] w1_o [2],
     output [15:0] w2_o [2],
@@ -109,18 +109,18 @@ module controller #(
     logic [31:0] data_next;
     logic valid_next;
 
-    logic [15:0] a  [2][8];
-    logic [15:0] b  [2][8];
-    logic [15:0] r_squared [8];
+    logic [15:0] a  [2][16];
+    logic [15:0] b  [2][16];
+    logic [15:0] r_squared [16];
     logic [15:0] col_center;
     logic [15:0] row_center;
     logic [15:0] w0 [2];
     logic [15:0] w1 [2];
     logic [15:0] w2 [2];
 
-    logic [15:0] a_next  [2][8];
-    logic [15:0] b_next  [2][8];
-    logic [15:0] r_squared_next [8];
+    logic [15:0] a_next  [2][16];
+    logic [15:0] b_next  [2][16];
+    logic [15:0] r_squared_next [16];
     logic [15:0] col_center_next;
     logic [15:0] row_center_next;
     logic [15:0] w0_next [2];
@@ -205,9 +205,10 @@ module controller #(
                 default: ;
             endcase
         end
+        if(valid) begin
         // Scale 0 - A
         i = 0;
-        for(int a = 16'hA0; a < 16'hA8; a++) begin
+        for(int a = 16'hA0; a < 16'hB0; a++) begin
             if(addr == a[15:0]) begin
                 a_next[0][i] = data[15:0];
             end
@@ -216,7 +217,7 @@ module controller #(
 
         // Scale 1 - A
         i = 0;
-        for(int a = 16'hA8; a < 16'hB0; a++) begin
+        for(int a = 16'h90; a < 16'hA0; a++) begin
             if(addr == a[15:0]) begin
                 a_next[1][i] = data[15:0];
             end
@@ -225,7 +226,7 @@ module controller #(
 
         // Scale 0 - B
         i = 0;
-        for(int a = 16'hB0; a < 16'hB8; a++) begin
+        for(int a = 16'hB0; a < 16'hC0; a++) begin
             if(addr == a[15:0]) begin
                 b_next[0][i] = data[15:0];
             end
@@ -234,7 +235,7 @@ module controller #(
 
         // Scale 1 - B
         i = 0;
-        for(int a = 16'hB8; a < 16'hC0; a++) begin
+        for(int a = 16'hF0; a <= 16'hFF; a++) begin
             if(addr == a[15:0]) begin
                 b_next[1][i] = data[15:0];
             end
@@ -243,12 +244,13 @@ module controller #(
 
         // r squared
         i = 0;
-        for(int a = 16'h70; a < 16'h78; a++) begin
+        for(int a = 16'h70; a < 16'h80; a++) begin
             if(addr == a[15:0]) begin
                 r_squared_next[i] = data[15:0];
             end
             i++;
         end 
+        end
 
         if(!rst_n_i) begin
             valid_next = 0;

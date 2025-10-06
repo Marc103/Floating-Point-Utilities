@@ -2164,7 +2164,7 @@ module zero_scale_fp16 #(
             );
 
             // ----- V Accumulate -------
-            pass_dx_dy_adder_fp16 #(.SAME_SIGN(1)) v_accumulate (
+            pass_dx_dy_adder_fp16 #(.SAME_SIGN(0)) v_accumulate (
                 .clk_i(clk_i),
                 .rst_i(rst_i),
 

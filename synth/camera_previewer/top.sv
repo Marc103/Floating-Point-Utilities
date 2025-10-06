@@ -37,7 +37,7 @@ module top #(
     parameter BUFFER_DEPTH_I = 32,
 
     // Output Stream Buffer
-    parameter CHANNELS_O       = 2,
+    parameter CHANNELS_O       = 1,
     parameter DATA_WIDTH_O     = 8,
     parameter BUFFER_DEPTH_O   = 2**16,
 
@@ -191,15 +191,6 @@ module top #(
     logic        i2c_init_data_valid_w   [2];
     logic        i2c_transmitter_ready_w [2];
 
-    ////////////////////////////////////////////////////////////////
-    // Dfdd constants wiring
-    logic [15:0] a  [3];
-    logic [15:0] b  [3];
-    logic [15:0] w0 [3];
-    logic [15:0] w1 [3];
-    logic [15:0] w2 [3];
-    logic [15:0] confidence;
-
     generate
         for(genvar gi = 0; gi < 2; gi++) begin
             localparam INIT_FILE = gi == 0 ? INIT_FILE_0 : INIT_FILE_1;
@@ -267,6 +258,18 @@ module top #(
     ////////////////////////////////////////////////////////////////
     // bilinear transformation interfaces
     logic signed [11+PRECISION-1:0] bilinear_matrices [2][3][3];
+
+    ////////////////////////////////////////////////////////////////
+    // Dfdd constants wiring
+    logic [15:0] a  [2][16];
+    logic [15:0] b  [2][16];
+    logic [15:0] r_squared [16];
+    logic [15:0] w0 [2];
+    logic [15:0] w1 [2];
+    logic [15:0] w2 [2];
+    logic [15:0] col_center;
+    logic [15:0] row_center;
+    logic [15:0] confidence;
 
     ////////////////////////////////////////////////////////////////
     // i2c shutter trig
@@ -369,11 +372,11 @@ module top #(
 
     assign rd_stall_sbi_w = 0;
 
-    assign wr_channels_sbo_w = rd_channels_sbi_w;
-    assign wr_clks_sbo_w = '{core_clk, core_clk};
-    assign wr_rsts_sbo_w = '{sys_reset, sys_reset};
+    assign wr_channels_sbo_w = '{rd_channels_sbi_w[0]};
+    assign wr_clks_sbo_w = '{core_clk};
+    assign wr_rsts_sbo_w = '{sys_reset};
     assign wr_sof_sbo_w     = rd_sof_sbi_w;
-    assign wr_valids_sbo_w   = {rd_valid_sbi_w, rd_valid_sbi_w};
+    assign wr_valids_sbo_w   = '{rd_valid_sbi_w};
 
     ////////////////////////////////////////////////////////////////
     // Output Stream Buffer
@@ -487,9 +490,12 @@ module top #(
         .in(command_in),
         .a_o(a),
         .b_o(b),
+        .r_squared_o(r_squared),
         .w0_o(w0),
         .w1_o(w1),
         .w2_o(w2),
+        .col_center_o(col_center),
+        .row_center_o(row_center),
         .confidence_o(confidence),
         .bilinear_matrices_o(bilinear_matrices),
         .pre_bilinear_roi_boundaries_o(pre_bilinear_roi),

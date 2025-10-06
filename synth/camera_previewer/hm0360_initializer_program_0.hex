@@ -44,7 +44,7 @@
 // sensor_core_clk = 48MHz / (2 * 0x0300[1:0]). pixclk = sensor_core_clk
 // pixel_clk_out_pin = 48MHz / (0x0300[3:2])  (??)
 // 0b, 0a, 09 for different clock speeds (4MHz, 8MHz, and 16MHz respectively)
-00_0300_0a
+00_0300_00
 00_0301_0A
 00_0302_77
 
@@ -83,10 +83,10 @@
 // set frame dims
 // {*0x341, *0x340} = HIMAX_FRAME_LENGTH_QVGA (=0x109)
 // {*0x342, *0x343} = HIMAX_LINE_LEN_PCK_QVGA (=0x178)
-00_0340_01
-00_0341_09
-00_0342_01
-00_0343_78
+00_0340_00
+00_0341_00
+00_0342_00
+00_0343_00
 
 00_0380_00  // H_SUBSAMPLE
 00_0381_00  // V_SUBSAMPLE

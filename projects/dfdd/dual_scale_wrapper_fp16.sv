@@ -201,14 +201,14 @@ module dual_scale_wrapper_fp16 #(
         .valid_o(v_added_valid_w)
     );
 
-    logic [FP_WIDTH_REG - 1 : 0] boxh_kernel_w [1][3];
+    logic [FP_WIDTH_REG - 1 : 0] boxh_kernel_w [1][9];
     always_comb begin
         boxh_kernel_w[0][0] = 16'h3c00;
         boxh_kernel_w[0][1] = 16'h3c00;
         boxh_kernel_w[0][2] = 16'h3c00;
     end
 
-    logic [FP_WIDTH_REG - 1 : 0] boxv_kernel_w [3][1];
+    logic [FP_WIDTH_REG - 1 : 0] boxv_kernel_w [9][1];
     always_comb begin
         boxv_kernel_w[0][0] = 16'h3c00;
         boxv_kernel_w[1][0] = 16'h3c00;
@@ -226,17 +226,17 @@ module dual_scale_wrapper_fp16 #(
     assign v_w_added_zip_row_w   = v_added_row_w;
     assign v_w_added_zip_valid_w = v_added_valid_w;
 
-    logic [(FP_WIDTH_REG * 2) - 1 : 0] v_w_added_zip_wfh_window_w [1][3];
+    logic [(FP_WIDTH_REG * 2) - 1 : 0] v_w_added_zip_wfh_window_w [1][9];
     logic [15:0]                       v_w_added_zip_wfh_col_w;
     logic [15:0]                       v_w_added_zip_wfh_row_w;
     logic                              v_w_added_zip_wfh_valid_w;
     
-    logic [FP_WIDTH_REG - 1 : 0] v_added_wfh_window_w [1][3];
+    logic [FP_WIDTH_REG - 1 : 0] v_added_wfh_window_w [1][9];
     logic [15:0]                 v_added_wfh_col_w;
     logic [15:0]                 v_added_wfh_row_w;
     logic                        v_added_wfh_valid_w;
 
-    logic [FP_WIDTH_REG - 1 : 0] w_added_wfh_window_w [1][3];
+    logic [FP_WIDTH_REG - 1 : 0] w_added_wfh_window_w [1][9];
     logic [15:0]                 w_added_wfh_col_w;
     logic [15:0]                 w_added_wfh_row_w;
     logic                        w_added_wfh_valid_w;
@@ -245,7 +245,7 @@ module dual_scale_wrapper_fp16 #(
         .DATA_WIDTH   (FP_WIDTH_REG * 2),
         .IMAGE_WIDTH  (IMAGE_WIDTH),
         .IMAGE_HEIGHT (IMAGE_HEIGHT),
-        .WINDOW_WIDTH (3),
+        .WINDOW_WIDTH (9),
         .WINDOW_HEIGHT(1),
         .BORDER_ENABLE(BORDER_ENABLE)
     ) v_w_added_zip_window_fetcher_h (
@@ -265,7 +265,7 @@ module dual_scale_wrapper_fp16 #(
 
     // unzip
     always_comb begin
-        for(int c = 0; c < 3; c++) begin
+        for(int c = 0; c < 9; c++) begin
             v_added_wfh_window_w[0][c] = v_w_added_zip_wfh_window_w[0][c][(FP_WIDTH_REG * 2) - 1 : FP_WIDTH_REG];
             w_added_wfh_window_w[0][c] = v_w_added_zip_wfh_window_w[0][c][FP_WIDTH_REG - 1 : 0];
         end
@@ -284,7 +284,7 @@ module dual_scale_wrapper_fp16 #(
     logic [15:0]                 v_added_boxh_row_w;
     logic                        v_added_boxh_valid_w;
     
-    box_h_0_ones_fp16 #(.SAME_SIGN(1)) v_added_box_h (
+    box_h_0_ones_9x9_fp16 v_added_box_h (
         .clk_i(clk_i),
         .rst_i(rst_i),
 
@@ -305,7 +305,7 @@ module dual_scale_wrapper_fp16 #(
     logic [15:0]                 w_added_boxh_row_w;
     logic                        w_added_boxh_valid_w;
     
-    box_h_0_ones_fp16 #(.SAME_SIGN(1)) w_added_box_h (
+    box_h_0_ones_9x9_fp16 #(.SAME_SIGN(1))  w_added_box_h (
         .clk_i(clk_i),
         .rst_i(rst_i),
 
@@ -331,17 +331,17 @@ module dual_scale_wrapper_fp16 #(
     assign v_w_added_boxh_zip_row_w   = v_added_boxh_row_w;
     assign v_w_added_boxh_zip_valid_w = v_added_boxh_valid_w;
 
-    logic [(FP_WIDTH_REG * 2) - 1 : 0] v_w_added_wfv_window_w [3][1];
+    logic [(FP_WIDTH_REG * 2) - 1 : 0] v_w_added_wfv_window_w [9][1];
     logic [15:0]                       v_w_added_wfv_col_w;
     logic [15:0]                       v_w_added_wfv_row_w;
     logic                              v_w_added_wfv_valid_w;
 
-    logic [FP_WIDTH_REG - 1 : 0] v_added_boxh_wfv_window_w [3][1];
+    logic [FP_WIDTH_REG - 1 : 0] v_added_boxh_wfv_window_w [9][1];
     logic [15:0]                 v_added_boxh_wfv_col_w;
     logic [15:0]                 v_added_boxh_wfv_row_w;
     logic                        v_added_boxh_wfv_valid_w;
 
-    logic [FP_WIDTH_REG - 1 : 0] w_added_boxh_wfv_window_w[3][1];
+    logic [FP_WIDTH_REG - 1 : 0] w_added_boxh_wfv_window_w[9][1];
     logic [15:0]                 w_added_boxh_wfv_col_w;
     logic [15:0]                 w_added_boxh_wfv_row_w;
     logic                        w_added_boxh_wfv_valid_w;
@@ -351,7 +351,7 @@ module dual_scale_wrapper_fp16 #(
         .IMAGE_WIDTH  (IMAGE_WIDTH),
         .IMAGE_HEIGHT (IMAGE_HEIGHT),
         .WINDOW_WIDTH (1),
-        .WINDOW_HEIGHT(3),
+        .WINDOW_HEIGHT(9),
         .BORDER_ENABLE(BORDER_ENABLE)
     ) v_w_added_window_fetcher_v (
         .clk_i(clk_i),
@@ -370,7 +370,7 @@ module dual_scale_wrapper_fp16 #(
 
     // unzip
     always_comb begin
-        for(int c = 0; c < 3; c++) begin
+        for(int c = 0; c < 9; c++) begin
             v_added_boxh_wfv_window_w [c][0] = v_w_added_wfv_window_w[c][0][(FP_WIDTH_REG * 2) - 1: FP_WIDTH_REG];
             w_added_boxh_wfv_window_w[c][0] = v_w_added_wfv_window_w[c][0][FP_WIDTH_REG - 1 : 0];
         end
@@ -389,7 +389,7 @@ module dual_scale_wrapper_fp16 #(
     logic [15:0]                 v_added_box_row_w;
     logic                        v_added_box_valid_w;
 
-    box_v_0_ones_fp16 #(.SAME_SIGN(1)) v_added_box_v (
+    box_v_0_ones_9x9_fp16 v_added_box_v (
         .clk_i(clk_i),
         .rst_i(rst_i),
 
@@ -410,7 +410,7 @@ module dual_scale_wrapper_fp16 #(
     logic [15:0]                 w_added_box_row_w;
     logic                        w_added_box_valid_w;
 
-    box_v_0_ones_fp16 #(.SAME_SIGN(1)) w_added_box_v (
+    box_v_0_ones_9x9_fp16 #(.SAME_SIGN(1))  w_added_box_v (
         .clk_i(clk_i),
         .rst_i(rst_i),
 
