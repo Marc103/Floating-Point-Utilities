@@ -19,9 +19,13 @@ module top #(
     localparam FP_N_IMAGE = 0, //16
     localparam FP_S_IMAGE = 0,  //1
 
+    // High Frame Rate, output 1 window instead of 3
+    // but at 4 times the frame rate.
+    parameter FAST = 0,
+
     // i2c
-    parameter string INIT_FILE_0 = "../../synth/dual_scale/hm0360_initializer_program_0.hex",
-    parameter string INIT_FILE_1 = "../../synth/dual_scale/hm0360_initializer_program_1.hex",
+    parameter string INIT_FILE_0 = FAST ? "../../synth/dual_scale/hm0360_initializer_program_fast_0.hex" :  "../../synth/dual_scale/hm0360_initializer_program_0.hex",
+    parameter string INIT_FILE_1 = FAST ? "../../synth/dual_scale/hm0360_initializer_program_fast_1.hex" : "../../synth/dual_scale/hm0360_initializer_program_1.hex",
     parameter SCL_DIV = 50,
 
     // bilinear matrix parameters
@@ -37,7 +41,7 @@ module top #(
     parameter BUFFER_DEPTH_I = 32,
 
     // Output Stream Buffer
-    parameter CHANNELS_O       = 1,
+    parameter CHANNELS_O       = FAST ? 1 : 3,
     parameter DATA_WIDTH_O     = 8,
     parameter BUFFER_DEPTH_O   = 2**16,
 
@@ -45,7 +49,16 @@ module top #(
     parameter        DES_CHANNEL_DATA_WIDTH = DATA_WIDTH_O,
     parameter [63:0] MAGIC_NUM = 64'h42_49_56_46_52_41_4D_45,
                                   //  B  I  V  F  R  A  M  E 
-    parameter DX_DY_ENABLE = 1
+    
+    // don't touch these
+    parameter NO_ZONES = 16,     
+    parameter BORDER_ENABLE = 0, 
+
+    // High Level DFDD algorithm settings
+    parameter NO_SCALES            = 2,    
+    parameter DX_DY_ENABLE         = 1,
+    parameter RADIAL_ENABLE        = 1,
+    parameter PREPROCESSING_ENABLE = 1
 ) (
     ////////////////////////////////
     // Dev board connections
@@ -262,13 +275,14 @@ module top #(
     // Dfdd constants wiring
     logic [15:0] a  [2][16];
     logic [15:0] b  [2][16];
-    logic [15:0] r_squared [16];
+    logic [17:0] r_squared [16];
     logic [15:0] w0 [2];
     logic [15:0] w1 [2];
     logic [15:0] w2 [2];
     logic [15:0] col_center;
     logic [15:0] row_center;
-    logic [15:0] confidence;
+    logic [15:0] confidence [16];
+    logic [15:0] depth      [16];
 
     ////////////////////////////////////////////////////////////////
     // i2c shutter trig
@@ -363,11 +377,6 @@ module top #(
 
     ////////////////////////////////////////////////////////////////
     // Processing Elements
-    logic                    wr_clks_sbo_w     [CHANNELS_O];
-    logic                    wr_rsts_sbo_w     [CHANNELS_O];
-    logic [DATA_WIDTH_O-1:0] wr_channels_sbo_w [CHANNELS_O];
-    logic                    wr_valids_sbo_w   [CHANNELS_O];
-    logic                    wr_sof_sbo_w;
 
     // uint8 to fp16 conversions and row/col tracking --------------
     assign rd_stall_sbi_w = 0;
@@ -440,22 +449,25 @@ module top #(
 
     logic [15:0] w_dual [2][3];
 
+    // this can be hardcoded to just 1
     assign w_dual = '{'{w0[0], w1[0], w2[0]},
                       '{w0[1], w1[1], w2[1]}};
     
-
     dual_scale_wrapper_fp16 #(
         .IMAGE_WIDTH(ROI_WIDTH),
         .IMAGE_HEIGHT(ROI_HEIGHT),
         .DX_DY_ENABLE(DX_DY_ENABLE),
-        .BORDER_ENABLE(0),
-        .NO_ZONES(16)
+        .BORDER_ENABLE(BORDER_ENABLE),
+        .NO_ZONES(NO_ZONES),
+        .NO_SCALES(NO_SCALES),
+        .RADIAL_ENABLE(RADIAL_ENABLE),
+        .PREPROCESSING_ENABLE(PREPROCESSING_ENABLE)
     ) dual_scale (
         .clk_i(core_clk),
         .rst_i(sys_reset),
 
-        .i_rho_plus_uint8_i (uint8_in_0),
-        .i_rho_minus_uint8_i(uint8_in_1),
+        .i_rho_plus_uint8_i (uint8_in_1),
+        .i_rho_minus_uint8_i(uint8_in_0),
         .col_i        (col_in_0),
         .row_i        (row_in_0),
         .valid_i      (valid_in_0),
@@ -464,6 +476,8 @@ module top #(
         .a_i  (a),
         .b_i  (b),
         .r_squared_i(r_squared),
+        .confidence_i(confidence),
+        .depth_i(depth),
         .col_center_i(col_center),
         .row_center_i(row_center),
 
@@ -474,67 +488,73 @@ module top #(
         .valid_o(valid_out)
     );
 
+    // fp16 to u8 conversions -------------------------------
     logic [15:0] col_delay;
     logic [15:0] row_delay;
-    logic [15:0] fp16_z_delay;
-    logic [15:0] fp16_c_delay;
-    logic        valid_delay;
 
     always@(posedge core_clk) begin
         col_delay <= col_out;
-        row_delay <= row_out;
-        fp16_z_delay <= fp16_z_out;
-        fp16_c_delay <= fp16_c_out;
-        if(sys_reset) begin
-            valid_delay <= 0;
-        end else begin
-            valid_delay <= valid_out;
-        end
-        
+        row_delay <= row_out;  
     end
 
-    logic [15:0] fp16_z_filtered_out;
-    assign fp16_z_filtered_out = (fp16_c_delay >= confidence) ? fp16_z_delay : 16'b0111_1111_1111_1111;
+    logic                    wr_clks_sbo_w     [CHANNELS_O];
+    logic                    wr_rsts_sbo_w     [CHANNELS_O];
+    logic [DATA_WIDTH_O-1:0] wr_channels_sbo_w [CHANNELS_O];
+    logic                    wr_valids_sbo_w   [CHANNELS_O];
+    logic                    wr_sof_sbo_w;
 
-    // fp16 to u8 conversions -------------------------------
     logic wr_sof_sbo_delay;
-    always@(posedge core_clk) wr_sof_sbo_delay <= ((col_delay == 0) && (row_delay == 0));
-    
-    //assign wr_channels_sbo_w[0] = rd_channels_sbi_w[0];
-    //assign wr_valids_sbo_w  [0] = rd_valid_sbi_w;
-    assign wr_sof_sbo_w         = wr_sof_sbo_delay;
+    generate
+        if(FAST) begin
+            assign wr_sof_sbo_delay = ((col_delay == 0) && (row_delay == 0));
+            assign wr_sof_sbo_w     = wr_sof_sbo_delay;
+        end else begin
+            assign wr_sof_sbo_w = rd_sof_sbi_w;
+        end
+    endgenerate
 
-    assign wr_clks_sbo_w = '{core_clk};
-    assign wr_rsts_sbo_w = '{sys_reset};
-   
+    generate 
+        if(FAST) begin
+            assign wr_clks_sbo_w = '{core_clk};
+            assign wr_rsts_sbo_w = '{sys_reset};
 
-    fp16_u8_converter #(
-        .LEAD_EXPONENT_UNBIASED(-1)
-    ) z_fp16_u8_converter (
-        .clk_i(core_clk),
-        .rst_i(sys_reset),
+            fp16_u8_converter #(
+                .LEAD_EXPONENT_UNBIASED(-1)
+            ) z_fp16_u8_converter (
+                .clk_i(core_clk),
+                .rst_i(sys_reset),
 
-        .fp16_i(fp16_z_filtered_out),
-        .valid_i(valid_delay),
+                .fp16_i(fp16_z_out),
+                .valid_i(valid_out),
 
-        .u8_o(wr_channels_sbo_w[0]),
-        .valid_o(wr_valids_sbo_w[0])
-    );
+                .u8_o(wr_channels_sbo_w[0]),
+                .valid_o(wr_valids_sbo_w[0])
+            );
 
-    /*
-    fp16_u8_converter #(
-        .LEAD_EXPONENT_UNBIASED(7)
-    ) c_fp16_u8_converter (
-        .clk_i(core_clk),
-        .rst_i(sys_reset),
+        end else begin
+            assign wr_clks_sbo_w = '{core_clk, core_clk, core_clk};
+            assign wr_rsts_sbo_w = '{sys_reset, sys_reset, sys_reset};
 
-        .fp16_i(fp16_c_out),   
-        .valid_i(valid_out),
+            assign wr_channels_sbo_w[0] = rd_channels_sbi_w[0];
+            assign wr_channels_sbo_w[1] = rd_channels_sbi_w[1];
 
-        .u8_o(wr_channels_sbo_w[1]),
-        .valid_o(wr_valids_sbo_w[1])
-    );
-    */
+            assign wr_valids_sbo_w[0] = rd_valid_sbi_w;
+            assign wr_valids_sbo_w[1] = rd_valid_sbi_w;
+
+            fp16_u8_converter #(
+                .LEAD_EXPONENT_UNBIASED(-1)
+            ) z_fp16_u8_converter (
+                .clk_i(core_clk),
+                .rst_i(sys_reset),
+
+                .fp16_i(fp16_z_out),
+                .valid_i(valid_out),
+
+                .u8_o(wr_channels_sbo_w[2]),
+                .valid_o(wr_valids_sbo_w[2])
+            );
+        end
+    endgenerate
 
     ////////////////////////////////////////////////////////////////
     // Output Stream Buffer
@@ -655,6 +675,7 @@ module top #(
         .col_center_o(col_center),
         .row_center_o(row_center),
         .confidence_o(confidence),
+        .depth_o(depth),
         .bilinear_matrices_o(bilinear_matrices),
         .pre_bilinear_roi_boundaries_o(pre_bilinear_roi),
         .post_bilinear_roi_boundaries_o(post_bilinear_roi)

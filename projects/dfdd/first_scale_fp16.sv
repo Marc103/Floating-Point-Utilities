@@ -12,6 +12,7 @@ module first_scale_fp16 #(
     parameter DX_DY_ENABLE = 0,
     parameter BORDER_ENABLE = 1,
     parameter NO_ZONES = 1,
+    parameter RADIAL_ENABLE = 1,
 
     ////////////////////////////////////////////////////////////////
     // Local parameters
@@ -31,7 +32,7 @@ module first_scale_fp16 #(
     input [FP_WIDTH_REG - 1 : 0]  w_i [3], // weights
     input [FP_WIDTH_REG - 1 : 0]  a_i         [NO_ZONES],
     input [FP_WIDTH_REG - 1 : 0]  b_i         [NO_ZONES],
-    input [15:0]                  r_squared_i [NO_ZONES],
+    input [17:0]                  r_squared_i [NO_ZONES],
     input [15:0]                  col_center_i,
     input [15:0]                  row_center_i,       
 
@@ -1558,6 +1559,19 @@ module first_scale_fp16 #(
     logic [FP_WIDTH_REG - 1 : 0] b_radial_w;
     logic [FP_WIDTH_REG - 1 : 0] b_radial_delay_w;
 
+    logic [FP_WIDTH_REG - 1 : 0] a_radial_pre_w;
+    logic [FP_WIDTH_REG - 1 : 0] b_radial_pre_w;
+
+    generate
+        if(RADIAL_ENABLE) begin
+            assign a_radial_w = a_radial_pre_w;
+            assign b_radial_w = b_radial_pre_w;
+        end else begin
+            assign a_radial_w = a_i[0];
+            assign b_radial_w = b_i[0];
+        end
+    endgenerate
+
     radial_a_b_fp16 #(
         .NO_ZONES(NO_ZONES)
     ) radial_a_b (
@@ -1569,8 +1583,8 @@ module first_scale_fp16 #(
         .col_center_i(col_center_i),
         .row_center_i(row_center_i),
 
-        .a_o(a_radial_w),
-        .b_o(b_radial_w)
+        .a_o(a_radial_pre_w),
+        .b_o(b_radial_pre_w)
 
     );
 
@@ -2076,7 +2090,7 @@ module first_scale_fp16 #(
                 .rst_i(rst_i),
                 .fp_a_i (v_pass_pre_data_w),
                 .fp_b_i (w_i[0]),
-                .valid_i(v_pass_valid_w),
+                .valid_i(v_pass_pre_valid_w),
                 .fp_o   (v_pass_data_weighted_w),
                 .valid_o(v_pass_valid_weighted_w)
             );

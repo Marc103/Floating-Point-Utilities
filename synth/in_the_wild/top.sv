@@ -189,7 +189,7 @@ module top #(
     logic        i2c_rw_bit_w            [2];
     logic        i2c_init_data_valid_w   [2];
     logic        i2c_transmitter_ready_w [2];
-
+    /*
     generate
         for(genvar gi = 0; gi < 2; gi++) begin
             localparam INIT_FILE = gi == 0 ? INIT_FILE_0 : INIT_FILE_1;
@@ -245,7 +245,7 @@ module top #(
                 
         end
     endgenerate
-
+    */
     ////////////////////////////////////////////////////////////////
     // ROI wiring
     // We have a single ROI that's shared between both camera 
@@ -293,7 +293,7 @@ module top #(
     logic [7:0] wr_channels_dcw_sbi_w [2];
     logic       wr_valids_dcw_sbi_w   [2];
     logic       wr_sof_dcw_sbi_w;
-
+    
     dual_camera_wrapper #(
         .FP_M_IMAGE(FP_M_IMAGE),
         .FP_N_IMAGE(FP_N_IMAGE),
@@ -331,7 +331,16 @@ module top #(
         .wr_sof_o     (wr_sof_dcw_sbi_w)
     );
 
+    always_comb begin
+        for(int y = 0; y < 3; y++) begin
+            for(int x = 0; x < 3; x++) begin
+                bilinear_matrices[0][y][x] = 4124653849;
+            end
+        end
+    end
+    assign ft245_async_d = wr_channels_dcw_sbi_w[0];
 
+    /*
     ////////////////////////////////////////////////////////////////
     // Input Stream Buffer
     logic                    rd_stall_sbi_w;
@@ -357,7 +366,7 @@ module top #(
         .rd_valid_o   (rd_valid_sbi_w),
         .rd_sof_o     (rd_sof_sbi_w)
     );
-
+    
     ////////////////////////////////////////////////////////////////
     // Processing Elements
     logic                    wr_clks_sbo_w     [CHANNELS_O];
@@ -497,11 +506,15 @@ module top #(
     );
     */
 
+    /*
     logic [15:0] a_test;
     logic [15:0] b_test;
+    /*
     assign a_test = uint8_in_0 * uint8_in_1;
     assign b_test = uint8_in_0 * uint8_in_1;
-    
+    */
+
+    /*
     floating_point_adder #(
         .EXP_WIDTH(5),
         .FRAC_WIDTH(10)
@@ -514,7 +527,8 @@ module top #(
 
         .fp_o(fp16_z_out)
     );
-    
+    */
+    /*
     logic [15:0] a_tests [8];
     logic [15:0] b_tests [8];
     logic [15:0] r_tests [8];
@@ -540,7 +554,7 @@ module top #(
         .b_o(fp16_c_out)
     );
     */
-
+    
     /*
     assign fp16_z_out = fp16_in_0;
     assign fp16_c_out = fp16_in_1;
@@ -565,12 +579,12 @@ module top #(
         .valid_o(valid_out)
     );
     */
-
+    /*
     // fp16 to u8 conversions -------------------------------
     logic wr_sof_sbo_delay;
     always@(posedge core_clk) wr_sof_sbo_delay <= ((col_out == 0) && (row_out == 0));
    
-
+    
     fp16_u8_converter #(
         .LEAD_EXPONENT_UNBIASED(-1)
     ) z_fp16_u8_converter (

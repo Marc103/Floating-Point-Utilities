@@ -5,9 +5,12 @@ module dual_scale_wrapper_fp16 #(
     parameter IMAGE_WIDTH,
     parameter IMAGE_HEIGHT,
 
-    parameter DX_DY_ENABLE = 0,
-    parameter BORDER_ENABLE= 0,
-    parameter NO_ZONES = 1,
+    parameter DX_DY_ENABLE         = 0,
+    parameter BORDER_ENABLE        = 0,
+    parameter NO_ZONES             = 1,
+    parameter NO_SCALES            = 2,
+    parameter RADIAL_ENABLE        = 1,
+    parameter PREPROCESSING_ENABLE = 1,
     ////////////////////////////////////////////////////////////////
     // Local parameters
     parameter FP_WIDTH_REG = 1 + FRAC_WIDTH + EXP_WIDTH
@@ -25,7 +28,9 @@ module dual_scale_wrapper_fp16 #(
     input [FP_WIDTH_REG - 1 : 0] w_t_i,
     input [FP_WIDTH_REG - 1 : 0] a_i        [2][NO_ZONES],
     input [FP_WIDTH_REG - 1 : 0] b_i        [2][NO_ZONES],
-    input [15:0]                 r_squared_i   [NO_ZONES],
+    input [17:0]                 r_squared_i   [NO_ZONES],
+    input [15:0]                 confidence_i  [NO_ZONES],
+    input [15:0]                 depth_i       [NO_ZONES],
     input [15:0]                 col_center_i,
     input [15:0]                 row_center_i,
 
@@ -45,7 +50,8 @@ module dual_scale_wrapper_fp16 #(
     preprocessing_hybrid_uint8_to_fp16  #(
         .IMAGE_WIDTH(IMAGE_WIDTH),
         .IMAGE_HEIGHT(IMAGE_HEIGHT),
-        .BORDER_ENABLE(BORDER_ENABLE)
+        .BORDER_ENABLE(BORDER_ENABLE),
+        .PREPROCESSING_ENABLE(PREPROCESSING_ENABLE)
     ) preprocessor (
         .clk_i(clk_i),
         .rst_i(rst_i),
@@ -86,7 +92,8 @@ module dual_scale_wrapper_fp16 #(
         .IMAGE_HEIGHT (IMAGE_HEIGHT),
         .BORDER_ENABLE(BORDER_ENABLE),
         .DX_DY_ENABLE (DX_DY_ENABLE),
-        .NO_ZONES(NO_ZONES)
+        .NO_ZONES(NO_ZONES),
+        .RADIAL_ENABLE(RADIAL_ENABLE)
     ) zero_scale (
         .clk_i(clk_i),
         .rst_i(rst_i),
@@ -134,7 +141,8 @@ module dual_scale_wrapper_fp16 #(
         .IMAGE_HEIGHT(IMAGE_HEIGHT),
         .BORDER_ENABLE(BORDER_ENABLE),
         .DX_DY_ENABLE(DX_DY_ENABLE),
-        .NO_ZONES(NO_ZONES)
+        .NO_ZONES(NO_ZONES),
+        .RADIAL_ENABLE(RADIAL_ENABLE)
     ) first_scale (
         .clk_i(clk_i),
         .rst_i(rst_i),
@@ -201,236 +209,46 @@ module dual_scale_wrapper_fp16 #(
         .valid_o(v_added_valid_w)
     );
 
-    logic [FP_WIDTH_REG - 1 : 0] boxh_kernel_w [1][9];
-    always_comb begin
-        boxh_kernel_w[0][0] = 16'h3c00;
-        boxh_kernel_w[0][1] = 16'h3c00;
-        boxh_kernel_w[0][2] = 16'h3c00;
-    end
-
-    logic [FP_WIDTH_REG - 1 : 0] boxv_kernel_w [9][1];
-    always_comb begin
-        boxv_kernel_w[0][0] = 16'h3c00;
-        boxv_kernel_w[1][0] = 16'h3c00;
-        boxv_kernel_w[2][0] = 16'h3c00;
-    end
-
-    
-    logic [(FP_WIDTH_REG * 2) - 1 : 0] v_w_added_zip_data_w;
-    logic [15:0]                       v_w_added_zip_col_w;
-    logic [15:0]                       v_w_added_zip_row_w;
-    logic                              v_w_added_zip_valid_w;
-
-    assign v_w_added_zip_data_w  = {v_added_data_w, w_added_data_w};
-    assign v_w_added_zip_col_w   = v_added_col_w;
-    assign v_w_added_zip_row_w   = v_added_row_w;
-    assign v_w_added_zip_valid_w = v_added_valid_w;
-
-    logic [(FP_WIDTH_REG * 2) - 1 : 0] v_w_added_zip_wfh_window_w [1][9];
-    logic [15:0]                       v_w_added_zip_wfh_col_w;
-    logic [15:0]                       v_w_added_zip_wfh_row_w;
-    logic                              v_w_added_zip_wfh_valid_w;
-    
-    logic [FP_WIDTH_REG - 1 : 0] v_added_wfh_window_w [1][9];
-    logic [15:0]                 v_added_wfh_col_w;
-    logic [15:0]                 v_added_wfh_row_w;
-    logic                        v_added_wfh_valid_w;
-
-    logic [FP_WIDTH_REG - 1 : 0] w_added_wfh_window_w [1][9];
-    logic [15:0]                 w_added_wfh_col_w;
-    logic [15:0]                 w_added_wfh_row_w;
-    logic                        w_added_wfh_valid_w;
-
-    window_fetcher #(
-        .DATA_WIDTH   (FP_WIDTH_REG * 2),
-        .IMAGE_WIDTH  (IMAGE_WIDTH),
-        .IMAGE_HEIGHT (IMAGE_HEIGHT),
-        .WINDOW_WIDTH (9),
-        .WINDOW_HEIGHT(1),
-        .BORDER_ENABLE(BORDER_ENABLE)
-    ) v_w_added_zip_window_fetcher_h (
-        .clk_i(clk_i),
-        .rst_i(rst_i),
-
-        .data_i (v_w_added_zip_data_w),
-        .col_i  (v_w_added_zip_col_w),
-        .row_i  (v_w_added_zip_row_w),
-        .valid_i(v_w_added_zip_valid_w),
-
-        .window_o(v_w_added_zip_wfh_window_w),
-        .col_o   (v_w_added_zip_wfh_col_w),
-        .row_o   (v_w_added_zip_wfh_row_w),
-        .valid_o (v_w_added_zip_wfh_valid_w)
-    );
-
-    // unzip
-    always_comb begin
-        for(int c = 0; c < 9; c++) begin
-            v_added_wfh_window_w[0][c] = v_w_added_zip_wfh_window_w[0][c][(FP_WIDTH_REG * 2) - 1 : FP_WIDTH_REG];
-            w_added_wfh_window_w[0][c] = v_w_added_zip_wfh_window_w[0][c][FP_WIDTH_REG - 1 : 0];
-        end
-
-        v_added_wfh_col_w   = v_w_added_zip_wfh_col_w;
-        v_added_wfh_row_w   = v_w_added_zip_wfh_row_w;
-        v_added_wfh_valid_w = v_w_added_zip_wfh_valid_w;
-
-        w_added_wfh_col_w   = v_w_added_zip_wfh_col_w;
-        w_added_wfh_row_w   = v_w_added_zip_wfh_row_w;
-        w_added_wfh_valid_w = v_w_added_zip_wfh_valid_w;
-    end
-
-    logic [FP_WIDTH_REG - 1 : 0] v_added_boxh_data_w;
-    logic [15:0]                 v_added_boxh_col_w;
-    logic [15:0]                 v_added_boxh_row_w;
-    logic                        v_added_boxh_valid_w;
-    
-    box_h_0_ones_9x9_fp16 v_added_box_h (
-        .clk_i(clk_i),
-        .rst_i(rst_i),
-
-        .window_i(v_added_wfh_window_w),
-        .kernel_i(boxh_kernel_w),
-        .col_i   (v_added_wfh_col_w),
-        .row_i   (v_added_wfh_row_w),
-        .valid_i (v_added_wfh_valid_w),
-
-        .data_o (v_added_boxh_data_w),
-        .col_o  (v_added_boxh_col_w),
-        .row_o  (v_added_boxh_row_w),
-        .valid_o(v_added_boxh_valid_w)
-    );
-
-    logic [FP_WIDTH_REG - 1 : 0] w_added_boxh_data_w;
-    logic [15:0]                 w_added_boxh_col_w;
-    logic [15:0]                 w_added_boxh_row_w;
-    logic                        w_added_boxh_valid_w;
-    
-    box_h_0_ones_9x9_fp16 #(.SAME_SIGN(1))  w_added_box_h (
-        .clk_i(clk_i),
-        .rst_i(rst_i),
-
-        .window_i(w_added_wfh_window_w),
-        .kernel_i(boxh_kernel_w),
-        .col_i   (w_added_wfh_col_w),
-        .row_i   (w_added_wfh_row_w),
-        .valid_i (w_added_wfh_valid_w),
-
-        .data_o (w_added_boxh_data_w),
-        .col_o  (w_added_boxh_col_w),
-        .row_o  (w_added_boxh_row_w),
-        .valid_o(w_added_boxh_valid_w)
-    );
-
-    logic [(FP_WIDTH_REG * 2) - 1 : 0] v_w_added_boxh_zip_data_w;
-    logic [15:0]                       v_w_added_boxh_zip_col_w;
-    logic [15:0]                       v_w_added_boxh_zip_row_w;
-    logic                              v_w_added_boxh_zip_valid_w;
-
-    assign v_w_added_boxh_zip_data_w  = {v_added_boxh_data_w, w_added_boxh_data_w};
-    assign v_w_added_boxh_zip_col_w   = v_added_boxh_col_w;
-    assign v_w_added_boxh_zip_row_w   = v_added_boxh_row_w;
-    assign v_w_added_boxh_zip_valid_w = v_added_boxh_valid_w;
-
-    logic [(FP_WIDTH_REG * 2) - 1 : 0] v_w_added_wfv_window_w [9][1];
-    logic [15:0]                       v_w_added_wfv_col_w;
-    logic [15:0]                       v_w_added_wfv_row_w;
-    logic                              v_w_added_wfv_valid_w;
-
-    logic [FP_WIDTH_REG - 1 : 0] v_added_boxh_wfv_window_w [9][1];
-    logic [15:0]                 v_added_boxh_wfv_col_w;
-    logic [15:0]                 v_added_boxh_wfv_row_w;
-    logic                        v_added_boxh_wfv_valid_w;
-
-    logic [FP_WIDTH_REG - 1 : 0] w_added_boxh_wfv_window_w[9][1];
-    logic [15:0]                 w_added_boxh_wfv_col_w;
-    logic [15:0]                 w_added_boxh_wfv_row_w;
-    logic                        w_added_boxh_wfv_valid_w;
-
-    window_fetcher #(
-        .DATA_WIDTH   (FP_WIDTH_REG * 2),
-        .IMAGE_WIDTH  (IMAGE_WIDTH),
-        .IMAGE_HEIGHT (IMAGE_HEIGHT),
-        .WINDOW_WIDTH (1),
-        .WINDOW_HEIGHT(9),
-        .BORDER_ENABLE(BORDER_ENABLE)
-    ) v_w_added_window_fetcher_v (
-        .clk_i(clk_i),
-        .rst_i(rst_i),
-
-        .data_i (v_w_added_boxh_zip_data_w),
-        .col_i  (v_w_added_boxh_zip_col_w),
-        .row_i  (v_w_added_boxh_zip_row_w),
-        .valid_i(v_w_added_boxh_zip_valid_w),
-
-        .window_o(v_w_added_wfv_window_w),
-        .col_o   (v_w_added_wfv_col_w),
-        .row_o   (v_w_added_wfv_row_w),
-        .valid_o (v_w_added_wfv_valid_w)
-    );
-
-    // unzip
-    always_comb begin
-        for(int c = 0; c < 9; c++) begin
-            v_added_boxh_wfv_window_w [c][0] = v_w_added_wfv_window_w[c][0][(FP_WIDTH_REG * 2) - 1: FP_WIDTH_REG];
-            w_added_boxh_wfv_window_w[c][0] = v_w_added_wfv_window_w[c][0][FP_WIDTH_REG - 1 : 0];
-        end
-
-        v_added_boxh_wfv_col_w   = v_w_added_wfv_col_w;
-        v_added_boxh_wfv_row_w   = v_w_added_wfv_row_w;
-        v_added_boxh_wfv_valid_w = v_w_added_wfv_valid_w;
-
-        w_added_boxh_wfv_col_w   = v_w_added_wfv_col_w;
-        w_added_boxh_wfv_row_w   = v_w_added_wfv_row_w;
-        w_added_boxh_wfv_valid_w = v_w_added_wfv_valid_w;
-    end
-
-    logic [FP_WIDTH_REG - 1 : 0] v_added_box_data_w;
-    logic [15:0]                 v_added_box_col_w;
-    logic [15:0]                 v_added_box_row_w;
-    logic                        v_added_box_valid_w;
-
-    box_v_0_ones_9x9_fp16 v_added_box_v (
-        .clk_i(clk_i),
-        .rst_i(rst_i),
-
-        .window_i(v_added_boxh_wfv_window_w),
-        .kernel_i(boxv_kernel_w),
-        .col_i   (v_added_boxh_wfv_col_w),
-        .row_i   (v_added_boxh_wfv_row_w),
-        .valid_i (v_added_boxh_wfv_valid_w),
-
-        .data_o (v_added_box_data_w),
-        .col_o  (v_added_box_col_w),
-        .row_o  (v_added_box_row_w),
-        .valid_o(v_added_box_valid_w)
-    );
-
-    logic [FP_WIDTH_REG - 1 : 0] w_added_box_data_w;
-    logic [15:0]                 w_added_box_col_w;
-    logic [15:0]                 w_added_box_row_w;
-    logic                        w_added_box_valid_w;
-
-    box_v_0_ones_9x9_fp16 #(.SAME_SIGN(1))  w_added_box_v (
-        .clk_i(clk_i),
-        .rst_i(rst_i),
-
-        .window_i(w_added_boxh_wfv_window_w),
-        .kernel_i(boxv_kernel_w),
-        .col_i   (w_added_boxh_wfv_col_w),
-        .row_i   (w_added_boxh_wfv_row_w),
-        .valid_i (w_added_boxh_wfv_valid_w),
-
-        .data_o (w_added_box_data_w),
-        .col_o  (w_added_box_col_w),
-        .row_o  (w_added_box_row_w),
-        .valid_o(w_added_box_valid_w)
-    );
-
     //assign z_o = v_added_box_data_w;
     //assign c_o = w_added_box_data_w;
     //assign col_o = v_added_box_col_w;
     //assign row_o = v_added_box_row_w;
     //assign valid_o = v_added_box_valid_w;
+
+    logic [15:0] v_scale_choice_data_w;
+    logic [15:0] w_scale_choice_data_w;
+    logic [15:0] v_scale_choice_col_w;
+    logic [15:0] v_scale_choice_row_w;
+    logic        v_scale_choice_valid_w;
+
+    generate
+        if(NO_SCALES == 2) begin
+            assign v_scale_choice_data_w  = v_added_data_w;
+            assign w_scale_choice_data_w  = w_added_data_w;
+            assign v_scale_choice_col_w   = v_added_col_w;
+            assign v_scale_choice_row_w   = v_added_row_w;
+            assign v_scale_choice_valid_w = v_added_valid_w;
+        end else if(NO_SCALES == 1) begin
+            assign v_scale_choice_data_w  = v_0_data_w;
+            assign w_scale_choice_data_w  = w_0_data_w;
+            assign v_scale_choice_col_w   = v_0_col_w;
+            assign v_scale_choice_row_w   = v_0_row_w;
+            assign v_scale_choice_valid_w = v_0_valid_w;
+        end else begin
+            assign v_scale_choice_data_w  = v_0_data_w;
+            assign w_scale_choice_data_w  = w_0_data_w;
+            assign v_scale_choice_col_w   = v_0_col_w;
+            assign v_scale_choice_row_w   = v_0_row_w;
+            assign v_scale_choice_valid_w = v_0_valid_w;
+        end
+
+    endgenerate
+
+    logic [15:0] depth_data_w;
+    logic [15:0] depth_confidence_w;
+    logic [15:0] depth_col_w;
+    logic [15:0] depth_row_w;
+    logic        depth_valid_w;
 
     v_w_divider_0 #(
         .EXP_WIDTH(EXP_WIDTH),
@@ -439,18 +257,66 @@ module dual_scale_wrapper_fp16 #(
         .clk_i(clk_i),
         .rst_i(rst_i),
         
-        .v_i    (v_added_box_data_w),
-        .w_i    (w_added_box_data_w),
+        .v_i    (v_scale_choice_data_w),
+        .w_i    (w_scale_choice_data_w),
         .w_t_i  (w_t_i),
-        .col_i  (v_added_box_col_w),
-        .row_i  (v_added_box_row_w),
-        .valid_i(v_added_box_valid_w),
+        .col_i  (v_scale_choice_col_w),
+        .row_i  (v_scale_choice_row_w),
+        .valid_i(v_scale_choice_valid_w),
 
-        .z_o    (z_o),
-        .c_o    (c_o),
-        .col_o  (col_o),
-        .row_o  (row_o),
-        .valid_o(valid_o)
+        .z_o    (depth_data_w),
+        .c_o    (depth_confidence_w),
+        .col_o  (depth_col_w),
+        .row_o  (depth_row_w),
+        .valid_o(depth_valid_w)
     );
+
+    // confidence and depth filtering
+    logic [15:0] filtered_depth_data_w;
+    logic [15:0] filtered_depth_confidence_w;
+    logic [15:0] filtered_depth_col_w;
+    logic [15:0] filtered_depth_row_w;
+    logic        filtered_depth_valid_w;
+
+    radial_c_z_fp16 #(.NO_ZONES(NO_ZONES)) r_c_z (
+        .clk_i(clk_i),
+        .rst_i(rst_i),
+
+        .data_i      (depth_data_w),
+        .confidence_i(depth_confidence_w),
+        .col_i       (depth_col_w),
+        .row_i       (depth_row_w),
+        .valid_i     (depth_valid_w),
+
+        .c_i        (confidence_i),
+        .z_i        (depth_i),
+        .r_squared_i(r_squared_i),
+
+        .col_center_i(col_center_i),
+        .row_center_i(row_center_i),
+
+        .data_o      (filtered_depth_data_w),
+        .confidence_o(filtered_depth_confidence_w),
+        .col_o       (filtered_depth_col_w),
+        .row_o       (filtered_depth_row_w),
+        .valid_o     (filtered_depth_valid_w)
+
+    );
+
+    generate
+        if(RADIAL_ENABLE) begin
+            assign z_o     = filtered_depth_data_w;
+            assign c_o     = filtered_depth_confidence_w;
+            assign col_o   = filtered_depth_col_w;
+            assign row_o   = filtered_depth_row_w;
+            assign valid_o = filtered_depth_valid_w;
+        end else begin
+            assign z_o     = depth_data_w;
+            assign c_o     = depth_confidence_w;
+            assign col_o   = depth_col_w;
+            assign row_o   = depth_row_w;
+            assign valid_o = depth_valid_w;
+        end
+    endgenerate
 
 endmodule

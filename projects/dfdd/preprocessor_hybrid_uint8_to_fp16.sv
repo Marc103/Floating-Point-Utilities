@@ -10,6 +10,7 @@ module preprocessing_hybrid_uint8_to_fp16 #(
     parameter IMAGE_HEIGHT,
 
     parameter BORDER_ENABLE = 0,
+    parameter PREPROCESSING_ENABLE = 1,
 
     ////////////////////////////////////////////////////////////////
     // Local parameters
@@ -31,8 +32,39 @@ module preprocessing_hybrid_uint8_to_fp16 #(
     output [15:0]                 col_o,
     output [15:0]                 row_o,
     output                        valid_o
-);
+);  
 
+    // direct if RADIAL_ENABLE == 0
+    logic [15:0] i_rho_plus_direct_w;
+    logic [15:0] i_rho_minus_direct_w;
+    logic [15:0] col_direct_w;
+    logic [15:0] row_direct_w;
+    logic        valid_direct_w;
+
+    uint8_fp16_converter i_plus_converter (
+        .clk_i(clk_i),
+        .rst_i(rst_i),
+
+        .uint8_i(i_rho_plus_i),
+        .valid_i(valid_i),
+        .fp16_o (i_rho_plus_direct_w),
+        .valid_o(valid_direct_w)
+    );
+
+    uint8_fp16_converter i_minus_converter (
+        .clk_i(clk_i),
+        .rst_i(rst_i),
+
+        .uint8_i(i_rho_minus_i),
+        .valid_i(),
+        .fp16_o (i_rho_minus_direct_w),
+        .valid_o()
+    );
+
+    always@(posedge clk_i) begin
+        col_direct_w <= col_i;
+        row_direct_w <= row_i;
+    end
 
     ////////////////////////////////////////////////////////////////
     // I rho plus / I rho minus interleaved (for data zipping)
@@ -613,6 +645,28 @@ module preprocessing_hybrid_uint8_to_fp16 #(
     logic [15:0]                 i_a_plus_row_w;
     logic                        i_a_plus_valid_w;
 
+    logic [FP_WIDTH_REG - 1 : 0] i_rho_plus_choice_w;
+    logic [FP_WIDTH_REG - 1 : 0] i_rho_minus_choice_w;
+    logic [15:0]                 i_rho_plus_col_choice_w;
+    logic [15:0]                 i_rho_plus_row_choice_w;
+    logic                        i_rho_plus_valid_choice_w;
+
+    generate
+        if(PREPROCESSING_ENABLE) begin
+            assign i_rho_plus_choice_w       = i_rho_plus_gaussian_data_w;
+            assign i_rho_minus_choice_w      = i_rho_minus_gaussian_data_w;
+            assign i_rho_plus_col_choice_w   = i_rho_plus_gaussian_col_w;
+            assign i_rho_plus_row_choice_w   = i_rho_plus_gaussian_row_w;
+            assign i_rho_plus_valid_choice_w = i_rho_plus_gaussian_valid_w;
+        end else begin
+            assign i_rho_plus_choice_w       = i_rho_plus_direct_w;
+            assign i_rho_minus_choice_w      = i_rho_minus_direct_w;
+            assign i_rho_plus_col_choice_w   = col_direct_w;
+            assign i_rho_plus_row_choice_w   = row_direct_w;
+            assign i_rho_plus_valid_choice_w = valid_direct_w;
+        end
+    endgenerate
+
     floating_point_adder #(
         .EXP_WIDTH(EXP_WIDTH),
         .FRAC_WIDTH(FRAC_WIDTH)
@@ -620,9 +674,9 @@ module preprocessing_hybrid_uint8_to_fp16 #(
         .clk_i(clk_i),
         .rst_i(rst_i),
 
-        .fp_a_i (i_rho_plus_gaussian_data_w),
-        .fp_b_i (i_rho_minus_gaussian_data_w),
-        .valid_i(i_rho_plus_gaussian_valid_w),
+        .fp_a_i (i_rho_plus_choice_w),
+        .fp_b_i (i_rho_minus_choice_w),
+        .valid_i(i_rho_plus_valid_choice_w),
 
         .fp_o   (i_a_plus_data_w),
         .valid_o(i_a_plus_valid_w)
@@ -635,7 +689,7 @@ module preprocessing_hybrid_uint8_to_fp16 #(
         .clk_i(clk_i),
         .rst_i(rst_i),
 
-        .fp_a_i(i_rho_plus_gaussian_col_w),
+        .fp_a_i(i_rho_plus_col_choice_w),
         .fp_o  (i_a_plus_col_w)
     );
 
@@ -646,7 +700,7 @@ module preprocessing_hybrid_uint8_to_fp16 #(
         .clk_i(clk_i),
         .rst_i(rst_i),
 
-        .fp_a_i(i_rho_plus_gaussian_row_w),
+        .fp_a_i(i_rho_plus_row_choice_w),
         .fp_o  (i_a_plus_row_w)
     );
 
@@ -698,8 +752,8 @@ module preprocessing_hybrid_uint8_to_fp16 #(
 
     logic [FP_WIDTH_REG - 1 : 0] i_rho_minus_gaussian_data_negative_w;
     always_comb begin
-        i_rho_minus_gaussian_data_negative_w[FP_WIDTH_REG - 1] = !i_rho_minus_gaussian_data_w[FP_WIDTH_REG - 1];
-        i_rho_minus_gaussian_data_negative_w[FP_WIDTH_REG - 2 : 0] = i_rho_minus_gaussian_data_w[FP_WIDTH_REG - 2 : 0];
+        i_rho_minus_gaussian_data_negative_w[FP_WIDTH_REG - 1] = !i_rho_minus_choice_w[FP_WIDTH_REG - 1];
+        i_rho_minus_gaussian_data_negative_w[FP_WIDTH_REG - 2 : 0] = i_rho_minus_choice_w[FP_WIDTH_REG - 2 : 0];
     end
 
     floating_point_adder #(
@@ -708,7 +762,7 @@ module preprocessing_hybrid_uint8_to_fp16 #(
     ) i_t_minus_adder (
         .clk_i(clk_i),
         .rst_i(rst_i),
-        .fp_a_i (i_rho_plus_gaussian_data_w),
+        .fp_a_i (i_rho_plus_choice_w),
         .fp_b_i (i_rho_minus_gaussian_data_negative_w),
         .fp_o   (i_t_minus_data_w)
     );

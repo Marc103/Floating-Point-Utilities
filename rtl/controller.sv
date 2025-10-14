@@ -27,9 +27,14 @@
  * 0xD0 -> 0xD1 - w1
  * 0xE0 -> 0xE1 - w2
  * 
- * Confidence minimum
+ * Confidence Minimum, 16 zones
  * ----------------------------
- * 0x50 - 2 bytes
+ * 0x50 -> 0x5F - 2 bytes
+ *
+ * Depth Maximum, 16 zones
+ * ----------------------------
+ * 0x00 -> 0x0F - 2 bytes
+ *
  *
  * Col and Row center
  * ----------------------------
@@ -53,7 +58,7 @@ module controller #(
 
     parameter [15:0] B  [2][16] = {default: 16'h3c00},
 
-    parameter [15:0] R_SQUARED[16] = '{default : 16'h0000},
+    parameter [17:0] R_SQUARED[16] = '{default : 16'h0000},
 
     parameter [15:0] COL_CENTER = 16'h00C8,
     parameter [15:0] ROW_CENTER = 16'h00C8,
@@ -62,7 +67,8 @@ module controller #(
     parameter [15:0] W1 [2] = '{16'h3c00, 16'h3c00},
     parameter [15:0] W2 [2] = '{16'h3c00, 16'h3c00},
 
-    parameter [15:0] DEFAULT_CONFIDENCE_MINIMUM = 0,
+    parameter [15:0] DEFAULT_CONFIDENCE_MINIMUM [16] = '{default : 16'h0000},
+    parameter [15:0] DEFAULT_DEPTH_MAXIMUM [16] = '{default : 16'h7fff},
 
     // default values for ROIs
     parameter logic [15:0] DEFAULT_PRE_XFORM_ROI_CORNER [2] = '{ 0, 0},
@@ -83,7 +89,7 @@ module controller #(
 
     output [15:0] a_o            [2][16],
     output [15:0] b_o            [2][16],
-    output [15:0] r_squared_o       [16],
+    output [17:0] r_squared_o       [16],
     output [15:0] w0_o [2],
     output [15:0] w1_o [2],
     output [15:0] w2_o [2],
@@ -96,7 +102,8 @@ module controller #(
     output logic [15:0] pre_bilinear_roi_boundaries_o [4],
     output logic [15:0] post_bilinear_roi_boundaries_o [4],
 
-    output [15:0] confidence_o
+    output [15:0] confidence_o [16],
+    output [15:0] depth_o [16]
 );
     localparam CONST_WIDTH = FP_M_K + FP_N_K + FP_S_K;
     localparam MATRIX_WIDTH = 11 + PRECISION;
@@ -111,7 +118,7 @@ module controller #(
 
     logic [15:0] a  [2][16];
     logic [15:0] b  [2][16];
-    logic [15:0] r_squared [16];
+    logic [17:0] r_squared [16];
     logic [15:0] col_center;
     logic [15:0] row_center;
     logic [15:0] w0 [2];
@@ -120,7 +127,7 @@ module controller #(
 
     logic [15:0] a_next  [2][16];
     logic [15:0] b_next  [2][16];
-    logic [15:0] r_squared_next [16];
+    logic [17:0] r_squared_next [16];
     logic [15:0] col_center_next;
     logic [15:0] row_center_next;
     logic [15:0] w0_next [2];
@@ -135,8 +142,11 @@ module controller #(
     logic [15:0] pre_bilinear_roi_corner_next [2];
     logic [15:0] post_bilinear_roi_corner_next [2];
 
-    logic [15:0] confidence;
-    logic [15:0] confidence_next;
+    logic [15:0] confidence [16];
+    logic [15:0] confidence_next [16];
+
+    logic [15:0] depth [16];
+    logic [15:0] depth_next [16];
 
     always_comb begin
         int i;
@@ -160,6 +170,7 @@ module controller #(
         post_bilinear_roi_corner_next = post_bilinear_roi_corner;
 
         confidence_next = confidence;
+        depth_next = depth;
 
         // Memory Mappings
         if(valid) begin
@@ -189,9 +200,6 @@ module controller #(
                 16'h26: bilinear_matrices_next[1][2][0] = data[MATRIX_WIDTH-1:0];
                 16'h27: bilinear_matrices_next[1][2][1] = data[MATRIX_WIDTH-1:0];
                 16'h28: bilinear_matrices_next[1][2][2] = data[MATRIX_WIDTH-1:0];
-
-                // confidence minimum
-                16'h50: confidence_next = data[15:0];
 
                 // col and row centers
                 16'h60: col_center_next = data[15:0];
@@ -246,10 +254,27 @@ module controller #(
         i = 0;
         for(int a = 16'h70; a < 16'h80; a++) begin
             if(addr == a[15:0]) begin
-                r_squared_next[i] = data[15:0];
+                r_squared_next[i] = data[17:0];
             end
             i++;
-        end 
+        end
+
+        // confidence minimum
+        for(int a = 16'h50; a < 16'h60; a++) begin
+            if(addr == a[15:0]) begin
+                confidence_next[i] = data[15:0];
+            end 
+            i++;
+        end
+
+        // depth maximum
+        for(int a = 16'h00; a < 16'h10; a++) begin
+            if(addr == a[15:0]) begin
+                depth_next[i] = data[15:0];
+            end 
+            i++;
+        end
+
         end
 
         if(!rst_n_i) begin
@@ -268,6 +293,7 @@ module controller #(
             row_center_next = ROW_CENTER;
 
             confidence_next = DEFAULT_CONFIDENCE_MINIMUM;
+            depth_next = DEFAULT_DEPTH_MAXIMUM;
 
             bilinear_matrices_next[0] = DEFAULT_BILINEAR_MATRICES;
             bilinear_matrices_next[1] = DEFAULT_BILINEAR_MATRICES;
@@ -295,6 +321,7 @@ module controller #(
         bilinear_matrices <= bilinear_matrices_next;
 
         confidence <= confidence_next;
+        depth <= depth_next;
 
         pre_bilinear_roi_corner <= pre_bilinear_roi_corner_next;
         post_bilinear_roi_corner <= post_bilinear_roi_corner_next;
@@ -322,4 +349,5 @@ module controller #(
     assign bilinear_matrices_o = bilinear_matrices;
 
     assign confidence_o = confidence;
+    assign depth_o = depth;
 endmodule

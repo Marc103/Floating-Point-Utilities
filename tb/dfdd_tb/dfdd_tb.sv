@@ -92,6 +92,7 @@ import scoreboards_pkg::*;
 `include "box_h_0_ones_11_fp16.sv"
 `include "box_v_0_ones_11_fp16.sv"
 `include "radial_a_b_fp16.sv"
+`include "radial_c_z_fp16.sv"
 
 ////////////////////////////////////////////////////////////////
 // timescale 
@@ -100,8 +101,8 @@ module dfdd_tb();
 
     ////////////////////////////////////////////////////////////////
     // localparams
-    localparam IMAGE_WIDTH  = 50;
-    localparam IMAGE_HEIGHT = 50;
+    localparam IMAGE_WIDTH  = 512;
+    localparam IMAGE_HEIGHT = 400;
 
     localparam EXP_WIDTH = 5;
     localparam FRAC_WIDTH = 10;
@@ -146,7 +147,9 @@ module dfdd_tb();
     logic [15:0] w_t;
     logic [15:0] a [2][16];
     logic [15:0] b [2][16];
-    logic [15:0] r_squared[16];
+    logic [17:0] r_squared[16];
+    logic [15:0] c [16];
+    logic [15:0] z [16];
     logic [15:0] col_center;
     logic [15:0] row_center;
 
@@ -158,6 +161,8 @@ module dfdd_tb();
     assign b = '{{16'h4562,16'h4562,16'h4562,16'h4562,16'h4562,16'h4562,16'h4562,16'h4562,16'h4562,16'h4562,16'h4562,16'h4562,16'h4562,16'h4562,16'h4562,16'h4562},
                  {16'h410b,16'h410b,16'h410b,16'h410b,16'h410b,16'h410b,16'h410b,16'h410b,16'h410b,16'h410b,16'h410b,16'h410b,16'h410b,16'h410b,16'h410b,16'h410b}};
     assign r_squared = {default : 16'h0000};
+    assign c = '{default : 16'h0000};
+    assign z = '{default : 16'h7fff};
     assign col_center = 25;
     assign row_center = 25;
 
@@ -211,7 +216,10 @@ module dfdd_tb();
         .IMAGE_HEIGHT(IMAGE_HEIGHT),
         .DX_DY_ENABLE(1),
         .BORDER_ENABLE(0),
-        .NO_ZONES(16)
+        .NO_ZONES(16),
+        .NO_SCALES(2),
+        .RADIAL_ENABLE(1),
+        .PREPROCESSING_ENABLE(1)
     ) dual_scale (
         .clk_i(clk),
         .rst_i(rst),
@@ -227,6 +235,8 @@ module dfdd_tb();
         .a_i  (a),
         .b_i  (b),
         .r_squared_i(r_squared),
+        .confidence_i(c),
+        .depth_i(z),
         .col_center_i(col_center),
         .row_center_i(row_center),
 

@@ -44,7 +44,7 @@
 // sensor_core_clk = 48MHz / (2 * 0x0300[1:0]). pixclk = sensor_core_clk
 // pixel_clk_out_pin = 48MHz / (0x0300[3:2])  (??)
 // 0b, 0a, 09 for different clock speeds (4MHz, 8MHz, and 16MHz respectively)
-00_0300_0a
+00_0300_00
 00_0301_0A
 00_0302_77
 
@@ -92,7 +92,7 @@
 00_0381_00  // V_SUBSAMPLE
 00_0382_00  // BINNING_MODE
 00_3030_00  // WIN_MODE
-00_0101_01  // IMG_ORIENTATION
+00_0101_00  // IMG_ORIENTATION. HFlip for image sensor 0 only.
 00_0104_01  // COMMAND_UPDATE
 
 /// SYNC function config.
