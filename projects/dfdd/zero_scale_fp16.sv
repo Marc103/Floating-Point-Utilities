@@ -1904,7 +1904,7 @@ module zero_scale_fp16 #(
     logic [FP_WIDTH_REG - 1 : 0] v_added_data_w;
     logic [15:0]                 v_added_col_w;
     logic [15:0]                 v_added_row_w;
-    logic [15:0]                 v_added_valid_w;
+    logic                        v_added_valid_w;
 
     logic [FP_WIDTH_REG - 1 : 0] w_added_data_w;
 

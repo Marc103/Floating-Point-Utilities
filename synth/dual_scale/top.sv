@@ -19,7 +19,7 @@ module top #(
     localparam FP_N_IMAGE = 0, //16
     localparam FP_S_IMAGE = 0,  //1
 
-    // High Frame Rate, output 1 window instead of 3
+    // High Frame Rate, output 1 window instead of 2
     // but at 4 times the frame rate.
     parameter FAST = 0,
 
@@ -41,7 +41,7 @@ module top #(
     parameter BUFFER_DEPTH_I = 32,
 
     // Output Stream Buffer
-    parameter CHANNELS_O       = FAST ? 1 : 3,
+    parameter CHANNELS_O       = FAST ? 1 : 2,
     parameter DATA_WIDTH_O     = 8,
     parameter BUFFER_DEPTH_O   = 2**16,
 
@@ -532,14 +532,12 @@ module top #(
             );
 
         end else begin
-            assign wr_clks_sbo_w = '{core_clk, core_clk, core_clk};
-            assign wr_rsts_sbo_w = '{sys_reset, sys_reset, sys_reset};
+            assign wr_clks_sbo_w = '{core_clk, core_clk};
+            assign wr_rsts_sbo_w = '{sys_reset, sys_reset};
 
             assign wr_channels_sbo_w[0] = rd_channels_sbi_w[0];
-            assign wr_channels_sbo_w[1] = rd_channels_sbi_w[1];
 
             assign wr_valids_sbo_w[0] = rd_valid_sbi_w;
-            assign wr_valids_sbo_w[1] = rd_valid_sbi_w;
 
             fp16_u8_converter #(
                 .LEAD_EXPONENT_UNBIASED(-1)
@@ -550,8 +548,8 @@ module top #(
                 .fp16_i(fp16_z_out),
                 .valid_i(valid_out),
 
-                .u8_o(wr_channels_sbo_w[2]),
-                .valid_o(wr_valids_sbo_w[2])
+                .u8_o(wr_channels_sbo_w[1]),
+                .valid_o(wr_valids_sbo_w[1])
             );
         end
     endgenerate

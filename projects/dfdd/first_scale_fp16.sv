@@ -1905,7 +1905,7 @@ module first_scale_fp16 #(
     logic [FP_WIDTH_REG - 1 : 0] v_dy_pre_data_w;
     logic [15:0]                 v_pass_pre_col_w;
     logic [15:0]                 v_pass_pre_row_w;
-    logic [15:0]                 v_pass_pre_valid_w;
+    logic                        v_pass_pre_valid_w;
 
     logic [FP_WIDTH_REG - 1 : 0] v_pass_data_weighted_w;
     logic [FP_WIDTH_REG - 1 : 0] v_dx_data_weighted_w;

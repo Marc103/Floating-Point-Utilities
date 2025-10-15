@@ -260,6 +260,7 @@ module controller #(
         end
 
         // confidence minimum
+        i = 0;
         for(int a = 16'h50; a < 16'h60; a++) begin
             if(addr == a[15:0]) begin
                 confidence_next[i] = data[15:0];
@@ -268,6 +269,7 @@ module controller #(
         end
 
         // depth maximum
+        i = 0;
         for(int a = 16'h00; a < 16'h10; a++) begin
             if(addr == a[15:0]) begin
                 depth_next[i] = data[15:0];
