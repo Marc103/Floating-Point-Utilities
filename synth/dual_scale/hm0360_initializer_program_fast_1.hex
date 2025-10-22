@@ -53,7 +53,7 @@
 
 ////////////////////////////////////////////////////////////////
 // Automatic Exposure config
-00_2000_0e  // disble automatic exposure (NOTE: Auto framerate enabled)
+00_2000_00  // disble automatic exposure (NOTE: Auto framerate enabled)
 
 // (HIMAX_FRAME_LENGTH_QVGA - 4) >> 8  and then (HIMAX_FRAME_LENGTH_QVGA - 4) & 0xff
 // note: HIMAX_FRAME_LENGTH_QVGA = 0x109
@@ -92,7 +92,7 @@
 00_0381_00  // V_SUBSAMPLE
 00_0382_00  // BINNING_MODE
 00_3030_00  // WIN_MODE
-00_0101_01  // IMG_ORIENTATION
+00_0101_00  // IMG_ORIENTATION
 00_0104_01  // COMMAND_UPDATE
 
 /// SYNC function config.

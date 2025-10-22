@@ -8,11 +8,11 @@ module top #(
 
     // Cropped image going into bilinear xform
     parameter IMAGE_WIDTH = 512, 
-    parameter IMAGE_HEIGHT = 400, 
+    parameter IMAGE_HEIGHT = 480, 
 
     // Post-bilinear crop size.
-    parameter ROI_WIDTH = 400,
-    parameter ROI_HEIGHT = 400,
+    parameter ROI_WIDTH = 500,
+    parameter ROI_HEIGHT = 480,
 
     // FP params image
     localparam FP_M_IMAGE = 8, //15
@@ -37,7 +37,7 @@ module top #(
     parameter BUFFER_DEPTH_I = 32,
 
     // Output Stream Buffer
-    parameter CHANNELS_O       = 1,
+    parameter CHANNELS_O       = 2,
     parameter DATA_WIDTH_O     = 8,
     parameter BUFFER_DEPTH_O   = 2**16,
 
@@ -263,13 +263,15 @@ module top #(
     // Dfdd constants wiring
     logic [15:0] a  [2][16];
     logic [15:0] b  [2][16];
-    logic [15:0] r_squared [16];
+    logic [17:0] r_squared [16];
     logic [15:0] w0 [2];
     logic [15:0] w1 [2];
     logic [15:0] w2 [2];
     logic [15:0] col_center;
     logic [15:0] row_center;
-    logic [15:0] confidence;
+    logic [15:0] confidence [16];
+    logic [15:0] depth      [16];
+
 
     ////////////////////////////////////////////////////////////////
     // i2c shutter trig
@@ -372,11 +374,11 @@ module top #(
 
     assign rd_stall_sbi_w = 0;
 
-    assign wr_channels_sbo_w = '{rd_channels_sbi_w[0]};
-    assign wr_clks_sbo_w = '{core_clk};
-    assign wr_rsts_sbo_w = '{sys_reset};
+    assign wr_channels_sbo_w = '{rd_channels_sbi_w[1], rd_channels_sbi_w[0]};
+    assign wr_clks_sbo_w = '{core_clk, core_clk};
+    assign wr_rsts_sbo_w = '{sys_reset, sys_reset};
     assign wr_sof_sbo_w     = rd_sof_sbi_w;
-    assign wr_valids_sbo_w   = '{rd_valid_sbi_w};
+    assign wr_valids_sbo_w   = '{rd_valid_sbi_w, rd_valid_sbi_w};
 
     ////////////////////////////////////////////////////////////////
     // Output Stream Buffer
@@ -497,6 +499,7 @@ module top #(
         .col_center_o(col_center),
         .row_center_o(row_center),
         .confidence_o(confidence),
+        .depth_o(depth),
         .bilinear_matrices_o(bilinear_matrices),
         .pre_bilinear_roi_boundaries_o(pre_bilinear_roi),
         .post_bilinear_roi_boundaries_o(post_bilinear_roi)

@@ -278,7 +278,7 @@ module dual_scale_wrapper_fp16 #(
     logic [15:0] filtered_depth_row_w;
     logic        filtered_depth_valid_w;
 
-    radial_c_z_fp16 #(.NO_ZONES(NO_ZONES)) r_c_z (
+    radial_c_z_fp16 #(.NO_ZONES(NO_ZONES), .RADIAL_ENABLE(RADIAL_ENABLE)) r_c_z (
         .clk_i(clk_i),
         .rst_i(rst_i),
 
@@ -303,20 +303,10 @@ module dual_scale_wrapper_fp16 #(
 
     );
 
-    generate
-        if(RADIAL_ENABLE) begin
-            assign z_o     = filtered_depth_data_w;
-            assign c_o     = filtered_depth_confidence_w;
-            assign col_o   = filtered_depth_col_w;
-            assign row_o   = filtered_depth_row_w;
-            assign valid_o = filtered_depth_valid_w;
-        end else begin
-            assign z_o     = depth_data_w;
-            assign c_o     = depth_confidence_w;
-            assign col_o   = depth_col_w;
-            assign row_o   = depth_row_w;
-            assign valid_o = depth_valid_w;
-        end
-    endgenerate
+    assign z_o     = filtered_depth_data_w;
+    assign c_o     = filtered_depth_confidence_w;
+    assign col_o   = filtered_depth_col_w;
+    assign row_o   = filtered_depth_row_w;
+    assign valid_o = filtered_depth_valid_w;
 
 endmodule

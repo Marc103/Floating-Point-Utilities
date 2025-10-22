@@ -8,11 +8,11 @@ module top #(
 
     // Cropped image going into bilinear xform
     parameter IMAGE_WIDTH = 512, 
-    parameter IMAGE_HEIGHT = 400, 
+    parameter IMAGE_HEIGHT = 480, 
 
     // Post-bilinear crop size.
-    parameter ROI_WIDTH = 400,
-    parameter ROI_HEIGHT = 400,
+    parameter ROI_WIDTH = 500,
+    parameter ROI_HEIGHT = 480,
 
     // FP params image
     localparam FP_M_IMAGE = 8, //15
@@ -56,9 +56,9 @@ module top #(
 
     // High Level DFDD algorithm settings
     parameter NO_SCALES            = 2,    
-    parameter DX_DY_ENABLE         = 1,
-    parameter RADIAL_ENABLE        = 1,
-    parameter PREPROCESSING_ENABLE = 1
+    parameter DX_DY_ENABLE         = 0,
+    parameter RADIAL_ENABLE        = 0,
+    parameter PREPROCESSING_ENABLE = 0
 ) (
     ////////////////////////////////
     // Dev board connections
@@ -466,8 +466,8 @@ module top #(
         .clk_i(core_clk),
         .rst_i(sys_reset),
 
-        .i_rho_plus_uint8_i (uint8_in_1),
-        .i_rho_minus_uint8_i(uint8_in_0),
+        .i_rho_plus_uint8_i (uint8_in_0),
+        .i_rho_minus_uint8_i(uint8_in_1),
         .col_i        (col_in_0),
         .row_i        (row_in_0),
         .valid_i      (valid_in_0),

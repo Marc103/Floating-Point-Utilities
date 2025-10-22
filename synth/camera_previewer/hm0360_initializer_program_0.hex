@@ -53,7 +53,7 @@
 
 ////////////////////////////////////////////////////////////////
 // Automatic Exposure config
-00_2000_0e  // disble automatic exposure (NOTE: Auto framerate enabled)
+00_2000_00  // disble automatic exposure (NOTE: Auto framerate enabled)
 
 // (HIMAX_FRAME_LENGTH_QVGA - 4) >> 8  and then (HIMAX_FRAME_LENGTH_QVGA - 4) & 0xff
 // note: HIMAX_FRAME_LENGTH_QVGA = 0x109

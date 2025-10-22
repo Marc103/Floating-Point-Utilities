@@ -1,5 +1,6 @@
 module radial_c_z_fp16 #(
-    parameter NO_ZONES = 1
+    parameter NO_ZONES = 1,
+    parameter RADIAL_ENABLE = 1
 ) (
     input clk_i,
     input rst_i,
@@ -31,8 +32,11 @@ module radial_c_z_fp16 #(
     logic        valid;
 
     logic [15:0] c         [NO_ZONES];
-    logic [15:0] z         [NO_ZONES];
+    logic [15:0] depth     [NO_ZONES];
     logic [17:0] r_squared [NO_ZONES];
+
+    logic [15:0] col_center;
+    logic [15:0] row_center;
 
 
     always@(posedge clk_i) begin
@@ -41,8 +45,11 @@ module radial_c_z_fp16 #(
         col        <= col_i;
         row        <= row_i;
 
-        c <= c_i;
-        z <= z_i;
+        col_center <= col_center_i;
+        row_center <= row_center_i;
+
+        c         <= c_i;
+        depth     <= z_i;
         r_squared <= r_squared_i;
 
         if(rst_i) begin
@@ -65,11 +72,12 @@ module radial_c_z_fp16 #(
     logic        confidence_bool;
 
     always_comb begin
+        if(RADIAL_ENABLE) begin
         col_s = col;
         row_s = row;
 
-        col_s = col_s - col_center_i;
-        row_s = row_s - row_center_i;
+        col_s = col_s - col_center;
+        row_s = row_s - row_center;
 
         col_squared = col_s * col_s;
         row_squared = row_s * row_s;
@@ -81,7 +89,7 @@ module radial_c_z_fp16 #(
 
         for(int z = (NO_ZONES - 1); z >= 0; z--) begin
             if(distance_squared < r_squared_i[z]) begin
-                if(confidence < c[z] || (data > z[z])) begin
+                if((confidence < c[z]) || (data > depth[z])) begin
                     confidence_bool = 1;
                 end
             end
@@ -89,6 +97,12 @@ module radial_c_z_fp16 #(
 
         if(confidence_bool) begin
             data_out = 16'b0111_1111_1111_1111;
+        end
+        end else begin
+            data_out = data;
+            if(confidence < c[0]) begin
+                data_out = 16'b0111_1111_1111_1111;
+            end
         end
 
     end
