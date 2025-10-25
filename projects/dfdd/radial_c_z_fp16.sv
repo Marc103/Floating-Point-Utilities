@@ -69,7 +69,6 @@ module radial_c_z_fp16 #(
 
     logic [15:0] data_out;
     logic [15:0] confidence_out;
-    logic        confidence_bool;
 
     always_comb begin
         if(RADIAL_ENABLE) begin
@@ -85,21 +84,17 @@ module radial_c_z_fp16 #(
         distance_squared = col_squared[17:0] + row_squared[17:0];
 
         data_out        = data;
-        confidence_bool = 0;
 
         for(int z = (NO_ZONES - 1); z >= 0; z--) begin
             if(distance_squared < r_squared_i[z]) begin
                 if((confidence < c[z]) || (data > depth[z])) begin
-                    confidence_bool = 1;
+                    data_out = 16'b0111_1111_1111_1111;
                 end else begin
-                    confidence_bool = 0;
+                    data_out = data;
                 end
             end
         end
 
-        if(confidence_bool) begin
-            data_out = 16'b0111_1111_1111_1111;
-        end
         end else begin
             data_out = data;
             if((confidence < c[0]) || (data > depth[0])) begin
