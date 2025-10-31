@@ -34,6 +34,11 @@
  * Depth Maximum, 16 zones
  * ----------------------------
  * 0x00 -> 0x0F - 2 bytes
+ * 
+ * Depth Minimum, 16 zones
+ * ----------------------------
+ * 0x30 -> 0x3F
+ *
  *
  *
  * Col and Row center
@@ -69,6 +74,7 @@ module controller #(
 
     parameter [15:0] DEFAULT_CONFIDENCE_MINIMUM [16] = '{default : 16'h0000},
     parameter [15:0] DEFAULT_DEPTH_MAXIMUM [16] = '{default : 16'h7fff},
+    parameter [15:0] DEFAULT_DEPTH_MINIMUM [16] = '{default : 16'h0000},
 
     // default values for ROIs
     parameter logic [15:0] DEFAULT_PRE_XFORM_ROI_CORNER [2] = '{ 0, 0},
@@ -103,7 +109,8 @@ module controller #(
     output logic [15:0] post_bilinear_roi_boundaries_o [4],
 
     output [15:0] confidence_o [16],
-    output [15:0] depth_o [16]
+    output [15:0] depth_o [16],
+    output [15:0] depth_min_o [16]
 );
     localparam CONST_WIDTH = FP_M_K + FP_N_K + FP_S_K;
     localparam MATRIX_WIDTH = 11 + PRECISION;
@@ -148,6 +155,9 @@ module controller #(
     logic [15:0] depth [16];
     logic [15:0] depth_next [16];
 
+    logic [15:0] depth_min [16];
+    logic [15:0] depth_min_next [16];
+
     always_comb begin
         int i;
 
@@ -171,6 +181,7 @@ module controller #(
 
         confidence_next = confidence;
         depth_next = depth;
+        depth_min_next = depth_min;
 
         // Memory Mappings
         if(valid) begin
@@ -277,6 +288,15 @@ module controller #(
             i++;
         end
 
+        // depth minimum
+        i = 0;
+        for(int a = 16'h30; a < 16'h40; a++) begin
+            if(addr == a[15:0]) begin
+                depth_min_next[i] = data[15:0];
+            end 
+            i++;
+        end
+
         end
 
         if(!rst_n_i) begin
@@ -296,6 +316,7 @@ module controller #(
 
             confidence_next = DEFAULT_CONFIDENCE_MINIMUM;
             depth_next = DEFAULT_DEPTH_MAXIMUM;
+            depth_min_next = DEFAULT_DEPTH_MINIMUM;
 
             bilinear_matrices_next[0] = DEFAULT_BILINEAR_MATRICES;
             bilinear_matrices_next[1] = DEFAULT_BILINEAR_MATRICES;
@@ -324,6 +345,7 @@ module controller #(
 
         confidence <= confidence_next;
         depth <= depth_next;
+        depth_min <= depth_min_next;
 
         pre_bilinear_roi_corner <= pre_bilinear_roi_corner_next;
         post_bilinear_roi_corner <= post_bilinear_roi_corner_next;
@@ -352,4 +374,5 @@ module controller #(
 
     assign confidence_o = confidence;
     assign depth_o = depth;
+    assign depth_min_o = depth_min;
 endmodule

@@ -31,6 +31,7 @@ module dual_scale_wrapper_fp16 #(
     input [17:0]                 r_squared_i   [NO_ZONES],
     input [15:0]                 confidence_i  [NO_ZONES],
     input [15:0]                 depth_i       [NO_ZONES],
+    input [15:0]                 depth_min_i   [NO_ZONES],
     input [15:0]                 col_center_i,
     input [15:0]                 row_center_i,
 
@@ -290,6 +291,7 @@ module dual_scale_wrapper_fp16 #(
 
         .c_i        (confidence_i),
         .z_i        (depth_i),
+        .z_min_i    (depth_min_i),
         .r_squared_i(r_squared_i),
 
         .col_center_i(col_center_i),

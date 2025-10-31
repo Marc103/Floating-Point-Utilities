@@ -11,8 +11,8 @@ module top #(
     parameter IMAGE_HEIGHT = 480, 
 
     // Post-bilinear crop size.
-    parameter ROI_WIDTH = 500,
-    parameter ROI_HEIGHT = 480,
+    parameter ROI_WIDTH = 490,
+    parameter ROI_HEIGHT = 450,
 
     // FP params image
     localparam FP_M_IMAGE = 8, //15
@@ -21,7 +21,7 @@ module top #(
 
     // High Frame Rate, output 1 window instead of 2
     // but at 4 times the frame rate.
-    parameter FAST = 0,
+    parameter FAST = 1,
 
     // i2c
     parameter string INIT_FILE_0 = FAST ? "../../synth/init_files/hm0360_initializer_program_fast_0.hex" :  "../../synth/init_files/hm0360_initializer_program_0.hex",

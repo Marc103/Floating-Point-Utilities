@@ -56,8 +56,8 @@ module top #(
 
     // High Level DFDD algorithm settings
     parameter NO_SCALES            = 2,    
-    parameter DX_DY_ENABLE         = 0,
-    parameter RADIAL_ENABLE        = 0,
+    parameter DX_DY_ENABLE         = 1,
+    parameter RADIAL_ENABLE        = 1,
     parameter PREPROCESSING_ENABLE = 1
 ) (
     ////////////////////////////////
@@ -283,6 +283,7 @@ module top #(
     logic [15:0] row_center;
     logic [15:0] confidence [16];
     logic [15:0] depth      [16];
+    logic [15:0] depth_min  [16];
 
     ////////////////////////////////////////////////////////////////
     // i2c shutter trig
@@ -478,6 +479,7 @@ module top #(
         .r_squared_i(r_squared),
         .confidence_i(confidence),
         .depth_i(depth),
+        .depth_min_i(depth_min),
         .col_center_i(col_center),
         .row_center_i(row_center),
 
@@ -674,6 +676,7 @@ module top #(
         .row_center_o(row_center),
         .confidence_o(confidence),
         .depth_o(depth),
+        .depth_min_o(depth_min),
         .bilinear_matrices_o(bilinear_matrices),
         .pre_bilinear_roi_boundaries_o(pre_bilinear_roi),
         .post_bilinear_roi_boundaries_o(post_bilinear_roi)
