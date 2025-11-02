@@ -76,18 +76,17 @@ def ft232h(rx_binary_queue, tx_binary_queue, sn_prefix=b'fsplit'):
     ftdev.setTimeouts(10, 10)  # in ms
     ftdev.setUSBParameters(64 * 1024, 64 * 1024)  # set rx, tx buffer size in bytes
     ftdev.setFlowControl(ft.defines.FLOW_RTS_CTS, 0, 0)
-    
+
     # Read data
     stats = DataRateStats()
     last_printed_time = time.time()
     STATS_PRINT_RATE = 5
     while True:
         # Try to read from the ft232; send the resulting data to stream decoder thread
-        chunk = ftdev.read(1 * 1024 * 1024)
+        chunk = ftdev.read(1024 * 1024)
         rx_binary_queue.put(chunk)
         # update data reading stats
         stats.register_bytes_read(len(chunk))
-
         # Check tx_binary queue to see if we need to send data
         try:
             txdata = tx_binary_queue.get_nowait()
@@ -197,7 +196,6 @@ class StreamDecoder:
             height     = rx_stream_header_info[1]
             channels   = rx_stream_header_info[2]
             data_width = rx_stream_header_info[3]
-
             # try seeing if there is a record request and perform
             # some setup
             try:
@@ -217,11 +215,19 @@ class StreamDecoder:
                     channel = np.array(rx_stream_np[c::channels], copy=True)
                     # then reshape into the appropriate width and height
                     channel = channel.reshape(height, width)
+                    # make continguous array
+                    channel = np.ascontiguousarray(channel)
                     # are and add it to the rx_channel_queues, with header info too
+                    # threw in a small crop too
+                    # if fast, cropping a 490x450 image:
                     self.rx_channel_queues[c].put(
                         ([width, height, channels, data_width],
-                         channel))
-
+                         channel[0:400, 0:480]))
+                    # else regular cropping a 500x480
+                    #self.rx_channel_queues[c].put(
+                    #    ([width, height, channels, data_width],
+                    #     channel[15:415, 5:485]))
+                    
                     # If recording is active, we should push it to the 
                     # recording queues too
                     if(self.remaining > 0):
@@ -274,7 +280,6 @@ class StreamDecoder:
         os.makedirs(self.output_dir, exist_ok=True)
 
     def step_record_request(self, header_info):
-        print("HELLO")
         filename = self.output_dir + '/' + self.base_filename 
         self.remaining -= 1
 
@@ -289,13 +294,13 @@ class StreamDecoder:
             channel_int_np = channel_pkg[1]
 
             if(self.several_frames_requested):
-                np.save(filename + "_" + str(c) + "_" + str(width) + "_" + str(height) + "_"  + str(self.remaining) + "_" + str(self.unique_id) + "_int.npy",channel_int_np)
+                #np.save(filename + "_" + str(c) + "_" + str(width) + "_" + str(height) + "_"  + str(self.remaining) + "_" + str(self.unique_id) + "_int.npy",channel_int_np)
 
                 # uint8 png
                 channel_uint8_np = (channel_int_np >> (data_width - 8)).astype(np.uint8)
                 cv2.imwrite(filename + "_" + str(c) + "_" + str(width) + "_" + str(height) + "_" + str(self.remaining) + "_" + str(self.unique_id) + ".png",channel_uint8_np)
             else:
-                np.save(filename + "_" + str(c)  + "_" + str(width) + "_" + str(height) + "_" + str(self.unique_id) + "_int.npy",channel_int_np)
+                #np.save(filename + "_" + str(c)  + "_" + str(width) + "_" + str(height) + "_" + str(self.unique_id) + "_int.npy",channel_int_np)
 
                 # uint8 png
                 channel_uint8_np = (channel_int_np >> (data_width - 8)).astype(np.uint8)
@@ -446,10 +451,10 @@ class ImageDisplayWindow(QtWidgets.QMainWindow):
 
         # Set homography
         set_camera_0_homography_action = QtWidgets.QAction("Set Camera 0 Homography", self)
-        set_camera_0_homography_action.triggered.connect(lambda: self.open_camera_homography_dialog(0x10))
+        set_camera_0_homography_action.triggered.connect(lambda: self.open_camera_homography_dialog(0x20))
         command_menu.addAction(set_camera_0_homography_action)
         set_camera_1_homography_action = QtWidgets.QAction("Set Camera 1 Homography", self)
-        set_camera_1_homography_action.triggered.connect(lambda: self.open_camera_homography_dialog(0x20))
+        set_camera_1_homography_action.triggered.connect(lambda: self.open_camera_homography_dialog(0x10))
         command_menu.addAction(set_camera_1_homography_action)
 
         # Set ROI
