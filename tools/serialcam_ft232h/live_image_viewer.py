@@ -240,8 +240,8 @@ class LiveImageViewer:
             raise TypeError(f"Unsupported dtype {a.dtype} for float16-view")
         elif interpretation == "byte-decimal-view":
             a = np.asarray(arr)
-            b = (a.astype(np.float32) / (2**8))
-            b[a == 255] = np.nan
+            b = (a.astype(np.float32) / (2**7))
+            b[a == 0] = np.nan
             return b
         else:
             raise ValueError(f"Unknown interpretation: {interpretation}")

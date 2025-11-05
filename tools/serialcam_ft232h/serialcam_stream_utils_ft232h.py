@@ -73,7 +73,7 @@ def ft232h(rx_binary_queue, tx_binary_queue, sn_prefix=b'fsplit'):
     ftdev.resetDevice()
     print("Read Thread: setting modes")
     ftdev.setBitMode(0xff, 0x00)
-    ftdev.setTimeouts(10, 10)  # in ms
+    ftdev.setTimeouts(100, 100)  # in ms
     ftdev.setUSBParameters(64 * 1024, 64 * 1024)  # set rx, tx buffer size in bytes
     ftdev.setFlowControl(ft.defines.FLOW_RTS_CTS, 0, 0)
 
@@ -220,13 +220,13 @@ class StreamDecoder:
                     # are and add it to the rx_channel_queues, with header info too
                     # threw in a small crop too
                     # if fast, cropping a 490x450 image:
-                    self.rx_channel_queues[c].put(
-                        ([width, height, channels, data_width],
-                         channel[0:400, 0:480]))
-                    # else regular cropping a 500x480
                     #self.rx_channel_queues[c].put(
                     #    ([width, height, channels, data_width],
-                    #     channel[15:415, 5:485]))
+                    #     channel[0:400, 0:480]))
+                    # else regular cropping a 500x480
+                    self.rx_channel_queues[c].put(
+                        ([width, height, channels, data_width],
+                         channel[15:415, 5:485]))
                     
                     # If recording is active, we should push it to the 
                     # recording queues too
