@@ -17,6 +17,30 @@ from functools import partial
 # New: Import PyQt for our GUI display
 from PyQt5 import QtWidgets, QtGui, QtCore
 
+def make_plaintext_box(n_lines: int = 5) -> QtWidgets.QPlainTextEdit:
+    box = QtWidgets.QPlainTextEdit()
+    box.setLineWrapMode(QtWidgets.QPlainTextEdit.NoWrap)
+
+    # Use a monospace font (system default monospace)
+    mono = QtGui.QFont("Courier New")  # works on most platforms
+    mono.setStyleHint(QtGui.QFont.Monospace)
+    box.setFont(mono)
+
+    # Fill with default text: "1.00" repeated n times
+    default_text = "\n".join(["1.00"] * n_lines)
+    box.setPlainText(default_text)
+
+    # Compute height for exactly n lines
+    fm = QtGui.QFontMetrics(box.font())
+    line_height = fm.lineSpacing()
+    extra = int(box.contentsMargins().top() + box.contentsMargins().bottom()) + 6
+    fixed_height = int(line_height * n_lines) + extra
+    box.setFixedHeight(fixed_height - 150)
+
+    box.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAsNeeded)
+    return box
+
+
 # QDialog for "capture frames"
 class CaptureDialog(QtWidgets.QDialog):
     def __init__(self, settings=None, parent=None):
@@ -305,53 +329,73 @@ class DfddParametersSendWidget(QtWidgets.QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Set DfDD Parameters")
-        layout = QtWidgets.QFormLayout(self)
+
+        # ========== NEW TOP-LEVEL LAYOUT: grid with 2 columns ==========
+        grid = QtWidgets.QGridLayout(self)
+        col_left  = QtWidgets.QFormLayout()
+        col_right = QtWidgets.QFormLayout()
+        grid.addLayout(col_left,  0, 0)
+        grid.addLayout(col_right, 0, 1)
 
         monospace_font = QtGui.QFontDatabase.systemFont(QtGui.QFontDatabase.FixedFont)
 
-        self.title_s    = ["Scale 0", "Scale 1", "Scale 2"]
-        self.a_s        = [None, None, None]
-        self.b_s        = [None, None, None]
-        self.w0_s       = [None, None, None]
-        self.w1_s       = [None, None, None]
-        self.w2_s       = [None, None, None]
+        self.title_s     = ["Scale 0", "Scale 1"]
+        self.a_s         = [None, None]
+        self.b_s         = [None, None]
+        self.w0_s        = [None, None]
+        self.w1_s        = [None, None]
+        self.w2_s        = [None, None]
+
+        self.col_center = None
+        self.row_center = None
+        self.r_squared  = None
         self.confidence = None
 
-        self.a_s_addresses      = [0xa0, 0xa1, 0xa2]
-        self.b_s_addresses      = [0xb0, 0xb1, 0xb2]
-        self.w0_s_addresses     = [0xc0, 0xc1, 0xc2]
-        self.w1_s_addresses     = [0xd0, 0xd1, 0xd2]
-        self.w2_s_addresses     = [0xe0, 0xe1, 0xe2]
-        self.confidence_address = 0x50
+        self.a_base_addresses     = [0xa0, 0x90]
+        self.b_base_addresses     = [0xb0, 0xf0]
+        self.w0_base_addresses    = [0xc0, 0xc1]
+        self.w1_base_addresses    = [0xd0, 0xd1]
+        self.w2_base_addresses    = [0xe0, 0xe1]
+        self.col_center_address     = 0x60
+        self.row_center_address     = 0x61
+        self.r_squared_base_address = 0x70
+        self.confidence_address     = 0x50
+        self.depth_address          = 0x00
+        self.depth_min_address      = 0x30
 
-        for scale in range(0,3):
+        self.no_zones = 16
+
+        # Helper to pick column layout by scale
+        def target_form(scale: int) -> QtWidgets.QFormLayout:
+            return col_left if scale == 0 else col_right
+
+        for scale in range(0, 2):
+            form = target_form(scale)
+
+            # Title
             self.title_s[scale] = QtWidgets.QLabel(self.title_s[scale])
             self.title_s[scale].setFont(QtGui.QFont("Arial", 12, QtGui.QFont.Bold))
-            layout.addRow(self.title_s[scale]) 
-            
+            form.addRow(self.title_s[scale])
+
             # A
-            self.a_s[scale] = [QtWidgets.QHBoxLayout(), QtWidgets.QLineEdit(), QtWidgets.QPushButton("Set A")]
+            self.a_s[scale] = [QtWidgets.QHBoxLayout(), make_plaintext_box(self.no_zones), QtWidgets.QPushButton("Set A")]
             row =      self.a_s[scale][0]
             text_box = self.a_s[scale][1]
             button   = self.a_s[scale][2]
-            text_box.setFont(monospace_font)
-            text_box.setText("1.000")
-            button.clicked.connect(partial(self.send_dfdd_parameter, self.a_s_addresses[scale], text_box))
+            button.clicked.connect(partial(self.send_dfdd_parameter_block, True, self.a_base_addresses[scale], text_box, self.no_zones))
             row.addWidget(text_box)
             row.addWidget(button)
-            layout.addRow(row)
+            form.addRow(row)
 
             # B
-            self.b_s[scale] = [QtWidgets.QHBoxLayout(), QtWidgets.QLineEdit(), QtWidgets.QPushButton("Set B")]
+            self.b_s[scale] = [QtWidgets.QHBoxLayout(), make_plaintext_box(self.no_zones), QtWidgets.QPushButton("Set B")]
             row =      self.b_s[scale][0]
             text_box = self.b_s[scale][1]
             button   = self.b_s[scale][2]
-            text_box.setFont(monospace_font)
-            text_box.setText("1.000")
-            button.clicked.connect(partial(self.send_dfdd_parameter, self.b_s_addresses[scale], text_box))
+            button.clicked.connect(partial(self.send_dfdd_parameter_block, True, self.b_base_addresses[scale], text_box, self.no_zones))
             row.addWidget(text_box)
             row.addWidget(button)
-            layout.addRow(row)
+            form.addRow(row)
 
             # w0
             self.w0_s[scale] = [QtWidgets.QHBoxLayout(), QtWidgets.QLineEdit(), QtWidgets.QPushButton("Set w0")]
@@ -360,10 +404,10 @@ class DfddParametersSendWidget(QtWidgets.QWidget):
             button   = self.w0_s[scale][2]
             text_box.setFont(monospace_font)
             text_box.setText("1.000")
-            button.clicked.connect(partial(self.send_dfdd_parameter, self.w0_s_addresses[scale], text_box))
+            button.clicked.connect(partial(self.send_dfdd_parameter_block, True, self.w0_base_addresses[scale], text_box, 1))
             row.addWidget(text_box)
             row.addWidget(button)
-            layout.addRow(row)
+            form.addRow(row)
 
             # w1
             self.w1_s[scale] = [QtWidgets.QHBoxLayout(), QtWidgets.QLineEdit(), QtWidgets.QPushButton("Set w1")]
@@ -372,10 +416,10 @@ class DfddParametersSendWidget(QtWidgets.QWidget):
             button   = self.w1_s[scale][2]
             text_box.setFont(monospace_font)
             text_box.setText("1.000")
-            button.clicked.connect(partial(self.send_dfdd_parameter, self.w1_s_addresses[scale], text_box))
+            button.clicked.connect(partial(self.send_dfdd_parameter_block, True, self.w1_base_addresses[scale], text_box, 1))
             row.addWidget(text_box)
             row.addWidget(button)
-            layout.addRow(row)
+            form.addRow(row)
 
             # w2
             self.w2_s[scale] = [QtWidgets.QHBoxLayout(), QtWidgets.QLineEdit(), QtWidgets.QPushButton("Set w2")]
@@ -384,35 +428,145 @@ class DfddParametersSendWidget(QtWidgets.QWidget):
             button   = self.w2_s[scale][2]
             text_box.setFont(monospace_font)
             text_box.setText("1.000")
-            button.clicked.connect(partial(self.send_dfdd_parameter, self.w2_s_addresses[scale], text_box))
+            button.clicked.connect(partial(self.send_dfdd_parameter_block, True, self.w2_base_addresses[scale], text_box, 1))
             row.addWidget(text_box)
             row.addWidget(button)
-            layout.addRow(row)
+            form.addRow(row)
 
+        # ========== Bottom section spanning both columns ==========
+        bottom = QtWidgets.QFormLayout()
+
+        # Column & Row Center
+        col_row_center_title = QtWidgets.QLabel("Column and Row Center")
+        col_row_center_title.setFont(QtGui.QFont("Arial", 12, QtGui.QFont.Bold))
+        bottom.addRow(col_row_center_title)
+
+        self.col_center = [QtWidgets.QHBoxLayout(), QtWidgets.QLineEdit(), QtWidgets.QPushButton("Set Column Center")]
+        row =      self.col_center[0]
+        text_box = self.col_center[1]
+        button   = self.col_center[2]
+        text_box.setFont(monospace_font)
+        text_box.setText("0")
+        button.clicked.connect(partial(self.send_dfdd_parameter_block, False, self.col_center_address, text_box, 1))
+        row.addWidget(text_box)
+        row.addWidget(button)
+        bottom.addRow(row)
+
+        self.row_center = [QtWidgets.QHBoxLayout(), QtWidgets.QLineEdit(), QtWidgets.QPushButton("Set Row Center")]
+        row =      self.row_center[0]
+        text_box = self.row_center[1]
+        button   = self.row_center[2]
+        text_box.setFont(monospace_font)
+        text_box.setText("0")
+        button.clicked.connect(partial(self.send_dfdd_parameter_block, False, self.row_center_address, text_box, 1))
+        row.addWidget(text_box)
+        row.addWidget(button)
+        bottom.addRow(row)
+
+        # Radius Squared
+        radius_squared_title = QtWidgets.QLabel("Radius Squared Values")
+        radius_squared_title.setFont(QtGui.QFont("Arial", 12, QtGui.QFont.Bold))
+        bottom.addRow(radius_squared_title)
+
+        self.r_squared = [QtWidgets.QHBoxLayout(), make_plaintext_box(self.no_zones), QtWidgets.QPushButton("Set Radius²")]
+        row =      self.r_squared[0]
+        text_box = self.r_squared[1]
+        button   = self.r_squared[2]
+        button.clicked.connect(partial(self.send_dfdd_parameter_block, False, self.r_squared_base_address, text_box, self.no_zones))
+        row.addWidget(text_box)
+        row.addWidget(button)
+        bottom.addRow(row)
 
         # Confidence
-        confidence_title = QtWidgets.QLabel("Confidence")
+        confidence_title = QtWidgets.QLabel("Confidence Minimums")
         confidence_title.setFont(QtGui.QFont("Arial", 12, QtGui.QFont.Bold))
-        layout.addRow(confidence_title) 
+        bottom.addRow(confidence_title)
 
-        self.confidence = [QtWidgets.QHBoxLayout(), QtWidgets.QLineEdit(), QtWidgets.QPushButton("Set Confidence")]
+        self.confidence =  [QtWidgets.QHBoxLayout(), make_plaintext_box(self.no_zones), QtWidgets.QPushButton("Set Confidence")]
         row =      self.confidence[0]
         text_box = self.confidence[1]
         button   = self.confidence[2]
-        text_box.setFont(monospace_font)
-        text_box.setText("1.000")
-        button.clicked.connect(partial(self.send_dfdd_parameter, self.confidence_address, text_box))
+        button.clicked.connect(partial(self.send_dfdd_parameter_block, True, self.confidence_address, text_box, self.no_zones))
         row.addWidget(text_box)
         row.addWidget(button)
-        layout.addRow(row)
+        bottom.addRow(row)
 
-        self.setLayout(layout)
+        # Depth Maximum
+        depth_title = QtWidgets.QLabel("Depth Maximums")
+        depth_title.setFont(QtGui.QFont("Arial", 12, QtGui.QFont.Bold))
+        bottom.addRow(depth_title)
 
-    def send_dfdd_parameter(self, addr, text_box):
-        return_bytes = b""
-        val      = float(text_box.text())
-        val_fp16 = np.float16(val)
-        val_u32  = np.uint32(val_fp16.view(np.uint16))
+        self.confidence =  [QtWidgets.QHBoxLayout(), make_plaintext_box(self.no_zones), QtWidgets.QPushButton("Set Depth")]
+        row =      self.confidence[0]
+        text_box = self.confidence[1]
+        button   = self.confidence[2]
+        button.clicked.connect(partial(self.send_dfdd_parameter_block, True, self.depth_address, text_box, self.no_zones))
+        row.addWidget(text_box)
+        row.addWidget(button)
+        bottom.addRow(row)
 
-        return_bytes +=  val_u32.tobytes() + int(addr).to_bytes(2, 'little')
-        self.write_command.emit({"bytes" : return_bytes})
+        # Depth Minimum
+        depth_min_title = QtWidgets.QLabel("Depth Minimums")
+        depth_min_title.setFont(QtGui.QFont("Arial", 12, QtGui.QFont.Bold))
+        bottom.addRow(depth_min_title)
+
+        self.confidence =  [QtWidgets.QHBoxLayout(), make_plaintext_box(self.no_zones), QtWidgets.QPushButton("Set Depth")]
+        row =      self.confidence[0]
+        text_box = self.confidence[1]
+        button   = self.confidence[2]
+        button.clicked.connect(partial(self.send_dfdd_parameter_block, True, self.depth_min_address, text_box, self.no_zones))
+        row.addWidget(text_box)
+        row.addWidget(button)
+        bottom.addRow(row)
+
+        # Add bottom block spanning both columns
+        grid.addLayout(bottom, 1, 0, 1, 2)
+
+        self.setLayout(grid)
+
+
+    def send_dfdd_parameter_block(self, float_num, base_addr, text_box, n):
+        """
+        Parse up to n lines from text_box.
+        Each line is sent individually as float16 with its own address.
+        - base_addr: starting register address (int-like)
+        - text_box:  QLineEdit (single) or QTextEdit/QPlainTextEdit (multi-line)
+        - n: maximum number of lines to use
+        """
+        # Handle different Qt widget types
+        if hasattr(text_box, "toPlainText"):   # QTextEdit / QPlainTextEdit
+            lines = text_box.toPlainText().splitlines()
+        else:                                  # QLineEdit fallback
+            lines = str(text_box.text()).splitlines()
+
+        base = int(base_addr)
+        sent = 0
+
+        for raw in lines:
+            if sent >= int(n):
+                break
+
+            s = raw.strip()
+            if not s:
+                continue  # skip blank line, do not advance address
+            try:
+                val = float(s)
+            except ValueError:
+                continue  # skip invalid line
+
+            # Pack as float16 (same encoding as your single-value function)
+            val_u32 = 0
+            if(float_num):
+                val_fp16 = np.float16(val)
+                val_u32  = np.uint32(val_fp16.view(np.uint16))
+            else:
+                val_u32 = np.uint32(val)
+
+            addr = base + sent
+            return_bytes = val_u32.tobytes() + int(addr).to_bytes(2, "little")
+
+            # 🔑 Emit each value separately
+            self.write_command.emit({"bytes": return_bytes})
+
+            sent += 1
+            
