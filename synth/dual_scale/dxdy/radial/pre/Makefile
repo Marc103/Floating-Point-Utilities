@@ -7,7 +7,7 @@ all: ${PROJ}.bit
 	yosys -s synth.yosys | tee yosys.log
 
 %_out.config: %.json
-	nextpnr-ecp5 --json $< --textcfg $@ --um5g-85k --package CABGA381 --lpf ecp5evn.lpf --seed 42 --log nextpnr.log
+	nextpnr-ecp5 --json $< --textcfg $@ --um5g-85k --package CABGA381 --lpf ecp5evn.lpf --seed 42 --no-tmdriv  --log nextpnr.log
 	
 
 %.bit: %_out.config

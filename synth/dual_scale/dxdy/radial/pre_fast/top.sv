@@ -521,7 +521,7 @@ module top #(
             assign wr_rsts_sbo_w = '{sys_reset};
 
             fp16_u8_converter #(
-                .LEAD_EXPONENT_UNBIASED(-1)
+                .LEAD_EXPONENT_UNBIASED(0)
             ) z_fp16_u8_converter (
                 .clk_i(core_clk),
                 .rst_i(sys_reset),
@@ -542,7 +542,7 @@ module top #(
             assign wr_valids_sbo_w[0] = rd_valid_sbi_w;
 
             fp16_u8_converter #(
-                .LEAD_EXPONENT_UNBIASED(-1)
+                .LEAD_EXPONENT_UNBIASED(0)
             ) z_fp16_u8_converter (
                 .clk_i(core_clk),
                 .rst_i(sys_reset),

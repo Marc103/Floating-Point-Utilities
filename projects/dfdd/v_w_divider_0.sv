@@ -37,7 +37,7 @@ module v_w_divider_0 #(
     logic [FP_WIDTH_REG - 1 : 0] c_i;
     always_comb begin
         c_i[FP_WIDTH_REG - 1] = 0;
-        c_i[FP_WIDTH_REG - 2 : 0] = w_i[FP_WIDTH_REG - 2 : 0];
+        c_i[FP_WIDTH_REG - 2 : 0] = v_i[FP_WIDTH_REG - 2 : 0];
     end
 
     floating_point_divider #(

@@ -159,7 +159,7 @@ module controller #(
     logic [15:0] depth_min_next [16];
 
     always_comb begin
-        int i;
+        int i, j ,k;
 
         addr_next = in.addr;
         data_next = in.data;
@@ -183,48 +183,57 @@ module controller #(
         depth_next = depth;
         depth_min_next = depth_min;
 
-        // Memory Mappings
+        // Memory Mappings (written purposefully with independent if statements rather than case)
         if(valid) begin
-            case(addr)
-                // matrix A
-                16'h10: bilinear_matrices_next[0][0][0] = data[MATRIX_WIDTH-1:0];
-                16'h11: bilinear_matrices_next[0][0][1] = data[MATRIX_WIDTH-1:0];
-                16'h12: bilinear_matrices_next[0][0][2] = data[MATRIX_WIDTH-1:0];
 
-                16'h13: bilinear_matrices_next[0][1][0] = data[MATRIX_WIDTH-1:0];
-                16'h14: bilinear_matrices_next[0][1][1] = data[MATRIX_WIDTH-1:0];
-                16'h15: bilinear_matrices_next[0][1][2] = data[MATRIX_WIDTH-1:0];
+        // matrix A
+        if (addr == 16'h10) bilinear_matrices_next[0][0][0] = data[MATRIX_WIDTH-1:0];
+        if (addr == 16'h11) bilinear_matrices_next[0][0][1] = data[MATRIX_WIDTH-1:0];
+        if (addr == 16'h12) bilinear_matrices_next[0][0][2] = data[MATRIX_WIDTH-1:0];
 
-                16'h16: bilinear_matrices_next[0][2][0] = data[MATRIX_WIDTH-1:0];
-                16'h17: bilinear_matrices_next[0][2][1] = data[MATRIX_WIDTH-1:0];
-                16'h18: bilinear_matrices_next[0][2][2] = data[MATRIX_WIDTH-1:0];
+        if (addr == 16'h13) bilinear_matrices_next[0][1][0] = data[MATRIX_WIDTH-1:0];
+        if (addr == 16'h14) bilinear_matrices_next[0][1][1] = data[MATRIX_WIDTH-1:0];
+        if (addr == 16'h15) bilinear_matrices_next[0][1][2] = data[MATRIX_WIDTH-1:0];
 
-                // matrix B
-                16'h20: bilinear_matrices_next[1][0][0] = data[MATRIX_WIDTH-1:0];
-                16'h21: bilinear_matrices_next[1][0][1] = data[MATRIX_WIDTH-1:0];
-                16'h22: bilinear_matrices_next[1][0][2] = data[MATRIX_WIDTH-1:0];
+        if (addr == 16'h16) bilinear_matrices_next[0][2][0] = data[MATRIX_WIDTH-1:0];
+        if (addr == 16'h17) bilinear_matrices_next[0][2][1] = data[MATRIX_WIDTH-1:0];
+        if (addr == 16'h18) bilinear_matrices_next[0][2][2] = data[MATRIX_WIDTH-1:0];
 
-                16'h23: bilinear_matrices_next[1][1][0] = data[MATRIX_WIDTH-1:0];
-                16'h24: bilinear_matrices_next[1][1][1] = data[MATRIX_WIDTH-1:0];
-                16'h25: bilinear_matrices_next[1][1][2] = data[MATRIX_WIDTH-1:0];
+        // matrix B
+        if (addr == 16'h20) bilinear_matrices_next[1][0][0] = data[MATRIX_WIDTH-1:0];
+        if (addr == 16'h21) bilinear_matrices_next[1][0][1] = data[MATRIX_WIDTH-1:0];
+        if (addr == 16'h22) bilinear_matrices_next[1][0][2] = data[MATRIX_WIDTH-1:0];
 
-                16'h26: bilinear_matrices_next[1][2][0] = data[MATRIX_WIDTH-1:0];
-                16'h27: bilinear_matrices_next[1][2][1] = data[MATRIX_WIDTH-1:0];
-                16'h28: bilinear_matrices_next[1][2][2] = data[MATRIX_WIDTH-1:0];
+        if (addr == 16'h23) bilinear_matrices_next[1][1][0] = data[MATRIX_WIDTH-1:0];
+        if (addr == 16'h24) bilinear_matrices_next[1][1][1] = data[MATRIX_WIDTH-1:0];
+        if (addr == 16'h25) bilinear_matrices_next[1][1][2] = data[MATRIX_WIDTH-1:0];
 
-                // col and row centers
-                16'h60: col_center_next = data[15:0];
-                16'h61: row_center_next = data[15:0];
+        if (addr == 16'h26) bilinear_matrices_next[1][2][0] = data[MATRIX_WIDTH-1:0];
+        if (addr == 16'h27) bilinear_matrices_next[1][2][1] = data[MATRIX_WIDTH-1:0];
+        if (addr == 16'h28) bilinear_matrices_next[1][2][2] = data[MATRIX_WIDTH-1:0];
 
-                // camera 0 ROI settings
-                16'h80: pre_bilinear_roi_corner_next[0] = data[15:0];
-                16'h81: pre_bilinear_roi_corner_next[1] = data[15:0];
-                16'h82: post_bilinear_roi_corner_next[0] = data[15:0];
-                16'h83: post_bilinear_roi_corner_next[1] = data[15:0];
-                default: ;
-            endcase
-        end
-        if(valid) begin
+        // col and row centers
+        if (addr == 16'h60) col_center_next = data[15:0];
+        if (addr == 16'h61) row_center_next = data[15:0];
+
+        // camera 0 ROI settings
+        if (addr == 16'h80) pre_bilinear_roi_corner_next[0] = data[15:0];
+        if (addr == 16'h81) pre_bilinear_roi_corner_next[1] = data[15:0];
+        if (addr == 16'h82) post_bilinear_roi_corner_next[0] = data[15:0];
+        if (addr == 16'h83) post_bilinear_roi_corner_next[1] = data[15:0];
+
+        // w0
+        if(addr == 16'hc0) w0_next[0] = data[15:0];
+        if(addr == 16'hc1) w0_next[1] = data[15:0];
+
+        // w1
+        if(addr == 16'hd0) w1_next[0] = data[15:0];
+        if(addr == 16'hd1) w1_next[1] = data[15:0];
+        
+        // w2
+        if(addr == 16'he0) w2_next[0] = data[15:0];
+        if(addr == 16'he1) w2_next[1] = data[15:0];
+
         // Scale 0 - A
         i = 0;
         for(int a = 16'hA0; a < 16'hB0; a++) begin
@@ -296,6 +305,8 @@ module controller #(
             end 
             i++;
         end
+
+        // 
 
         end
 

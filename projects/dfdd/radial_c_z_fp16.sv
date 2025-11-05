@@ -91,7 +91,7 @@ module radial_c_z_fp16 #(
         for(int z = (NO_ZONES - 1); z >= 0; z--) begin
             if(distance_squared < r_squared_i[z]) begin
                 if((confidence < c[z]) || (data > depth[z]) || (data < depth_min[z])) begin
-                    data_out = 16'b0111_1111_1111_1111;
+                    data_out = 16'b1111_1111_1111_1111;
                 end else begin
                     data_out = data;
                 end
@@ -101,7 +101,7 @@ module radial_c_z_fp16 #(
         end else begin
             data_out = data;
             if((confidence < c[0]) || (data > depth[0]) || (data < depth_min[0])) begin
-                data_out = 16'b0111_1111_1111_1111;
+                data_out = 16'b1111_1111_1111_1111;
             end
         end
 
