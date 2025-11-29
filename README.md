@@ -2,12 +2,14 @@
 Contains parameterized 
 - floating point adder
 - multiplier
-- divider  
+- divider
+
 Parameterized as in you can select a custom number of bits for exponent and fractional parts i.e to support FP16 or FP32 (or anything above and in between like FP24). It's almost to the IEEE-754 with the exceptions of disabling subnormal number support and the rounding isn't perfect (ties always round up and instead of having a round and guard bit, there is just a round bit). This was done to make it more area efficient when deploying on FPGA platforms.
 
 There is also the modules
 - window fetcher
-- convolution floating point  
+- convolution floating point
+  
 The window fetcher grabs a window of values from a data stream (such as a pixel stream). The convolution module takes a window of values and a kernel and performs the convolution (MAC operation). Since kernels are often sparse matrices and/or with powers of 2, there is also the 'optimal_convolution_floating_point_generator.py" in the tools folder which generates the necessary wrappers to optimize away 0 values for multiplies and consequently the sparse adder trees. View the python file itself to see how to call it.
   
 By combining these building blocks modules, we can build networks of convolution filters with the data streaming model. This is showcased in the DfDD project.
