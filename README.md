@@ -1,6 +1,6 @@
 # Floating Point Image Processing SV RTL
-Contains parameterized 
-- floating point adder
+Contains parameterized floating point  
+- adder
 - multiplier
 - divider
 
