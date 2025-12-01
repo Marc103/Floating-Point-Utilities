@@ -1,93 +1,147 @@
 #!/usr/bin/env python3
 import os
 import sys
-import re
+import math
 import numpy as np
 from PIL import Image
-import pandas as pd
 import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
+import pandas as pd
 
 # ---------------- CONFIG ----------------
 DEFAULT_DIR = "."
-CSV_NAME = "cam_results.csv"
-PLOT_NAME = "mae_vs_target.png"
+CSV_NAME = "compute_mae_results.csv"
+PLOT_MAE_NAME = "mae_vs_target.png"
+PLOT_GRID_NAME = "depthmap_grid.png"
+
+VMIN = 0.4
+VMAX = 1.0
+HIGH_DPI = 600
+N_COLS = 7
 # ----------------------------------------
 
 
-def load_png_div128_cropped(path: str) -> np.ndarray:
-    """
-    Load 8-bit PNG → float32 by dividing by 2^7.
-    Convert RGB → grayscale if needed.
-    Crop arr[15:415, 5:485].
-    Convert zeros to NaN.
-    """
+def load_uint8_div128_cropped(path: str) -> np.ndarray:
+    """Load 8-bit PNG -> float, crop, zero→NaN."""
     with Image.open(path) as im:
         arr = np.asarray(im)
 
-    # Convert RGB(A) → grayscale
-    if arr.ndim == 3:
-        arr = arr[..., :3]             # drop alpha
-        arr = arr.mean(axis=2)         # grayscale average
+    if arr.ndim == 3:  # RGB or RGBA
+        arr = arr[..., :3]
+        arr = arr.mean(axis=2)
 
-    # Crop rows [15,415), cols [5,485)
-    arr = arr[15:415, 5:485]
-
-    # Divide by 2^7
+    arr = arr[15:415, 5:485]  # crop
     arr = arr.astype(np.float32) / (2**7)
-
-    # Zero → NaN
     arr[arr == 0.0] = np.nan
-
     return arr
 
 
 def main(directory: str):
-    pattern = re.compile(r"cam_1_500_480_(\d+)\.png$")
-    results = []
+    directory = os.path.abspath(directory)
 
-    files = sorted(fn for fn in os.listdir(directory) if pattern.match(fn))
-    if not files:
-        print("No matching files found (expected cam_1_500_480_<x>.png).")
+    results = []
+    samples = []
+
+    # Load in index order: cam_1_500_480_x.png
+    for x in range(56):
+        fname = f"cam_1_500_480_{x}.png"
+        fpath = os.path.join(directory, fname)
+        if not os.path.isfile(fpath):
+            continue
+
+        arr = load_uint8_div128_cropped(fpath)
+        target = 0.24 + 0.02 * x
+        mae = float(np.nanmean(np.abs(arr - target)))
+
+        results.append((x, target, mae, fname))
+        samples.append((x, arr, target, mae))
+
+        print(f"x={x:02d}: target={target:.2f}, MAE={mae:.4f}")
+
+    if not results:
+        print("No cam_1_500_480_x.png files found.")
         return
 
-    for fname in files:
-        x = int(pattern.match(fname).group(1))
-        target = 0.24 + (0.02 * x)
-        fpath = os.path.join(directory, fname)
-
-        try:
-            img = load_png_div128_cropped(fpath)
-
-            mae = float(np.nanmean(np.abs(img - target)))
-
-            print(f"x={x:02d}  target={target:.6f}  MAE={mae:.6f}  file={fname}")
-            results.append((x, target, mae, fname))
-
-        except Exception as e:
-            print(f"ERROR processing {fname}: {e}")
-            results.append((x, target, np.nan, fname))
-
-    # Save results to CSV
-    df = pd.DataFrame(results, columns=["x", "target", "MAE", "filename"])
-    df = df.sort_values("x")
+    # Save CSV
+    df = pd.DataFrame(results, columns=["x", "target_m", "MAE_m", "filename"])
     df.to_csv(os.path.join(directory, CSV_NAME), index=False)
-    print(f"\n✅ Results saved to: {os.path.join(directory, CSV_NAME)}")
 
-    # ----------- PLOT MAE vs Target -----------
+    # ------------------------ MAE vs Target Plot ------------------------
     plt.figure(figsize=(7, 4.2))
-    plt.scatter(df["target"], df["MAE"], marker="o", label="MAE vs Target")
-
-    plt.title("MAE vs Target (cropped, div128)")
-    plt.xlabel("Target Value (0.24 + 0.02·x)")
-    plt.ylabel("MAE")
-    plt.grid(True, alpha=0.3)
-    plt.legend()
-
+    plt.scatter(df["target_m"], df["MAE_m"])
+    plt.xlabel("Target Depth (m)")
+    plt.ylabel("MAE (m)")
+    plt.title("MAE vs Target Depth")
+    plt.grid(alpha=0.3)
     plt.tight_layout()
-    plt.savefig(os.path.join(directory, PLOT_NAME), dpi=150)
+    plt.savefig(os.path.join(directory, PLOT_MAE_NAME),
+                dpi=HIGH_DPI, bbox_inches="tight", pad_inches=0)
     plt.close()
 
-    print(f"📈 Plot saved to: {os.path.join(directory, PLOT_NAME)}")
+    # ------------------------ Tight Grid with Perfect Row Colorbars ------------------------
+    samples.sort(key=lambda t: t[0])
+    n = len(samples)
+    n_rows = math.ceil(n / N_COLS)
+
+    fig_width = 2.8 * (N_COLS + 0.5)
+    fig_height = 2.8 * n_rows
+    fig = plt.figure(figsize=(fig_width, fig_height))
+
+    # Outer GridSpec: rows × 1
+    outer_gs = gridspec.GridSpec(
+        n_rows,
+        1,
+        hspace=0.1,
+        wspace=0.1,
+    )
+
+    idx = 0
+    for r in range(n_rows):
+        # Subgrid for row r: 1 row × (N_COLS images + 1 colorbar)
+        row_gs = gridspec.GridSpecFromSubplotSpec(
+            1,
+            N_COLS + 1,
+            subplot_spec=outer_gs[r],
+            width_ratios=[1] * N_COLS + [0.07],
+            wspace=0.1,
+            hspace=0.1,
+        )
+
+        # Collect handles for first non-empty image in row
+        chosen_im = None
+
+        for c in range(N_COLS):
+            ax = fig.add_subplot(row_gs[0, c])
+
+            if idx < n:
+                x, arr, target, mae = samples[idx]
+                im = ax.imshow(arr, cmap="jet", vmin=VMIN, vmax=VMAX)
+
+                ax.set_title(f"t={target:.2f}m, MAE={mae:.3f}m",
+                             fontsize=7)
+                ax.axis("off")
+
+                if chosen_im is None:
+                    chosen_im = im
+
+                idx += 1
+            else:
+                ax.axis("off")
+
+        # Add colorbar for this row, perfectly aligned to row height
+        cax = fig.add_subplot(row_gs[0, -1])
+        if chosen_im is not None:
+            cbar = fig.colorbar(chosen_im, cax=cax)
+            cbar.set_label("Depth (m)", fontsize=8)
+
+    plt.savefig(
+        os.path.join(directory, PLOT_GRID_NAME),
+        dpi=HIGH_DPI,
+        bbox_inches="tight",
+        pad_inches=0,
+    )
+    plt.close()
+    print(f"Saved grid → {os.path.join(directory, PLOT_GRID_NAME)}")
 
 
 if __name__ == "__main__":

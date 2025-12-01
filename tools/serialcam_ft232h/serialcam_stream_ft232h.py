@@ -47,11 +47,11 @@ def execute(args):
     # The central channel controls the tx_binary_queue
     app = QtWidgets.QApplication([])
     app.setQuitOnLastWindowClosed(True)
-    window = ImageDisplayWindow(args.maxchannels, rx_channel_queues, recorder_request_queue, tx_binary_queue)
+    window = ImageDisplayWindow(args.maxchannels, rx_channel_queues, recorder_request_queue, tx_binary_queue, args.fast)
 
     # FT232 Threads
     ft232h_thread = threading.Thread(target=ft232h,
-                                     args=(rx_binary_queue, tx_binary_queue, args.ftdi_sn_prefix.encode('utf-8')),
+                                     args=(rx_binary_queue, tx_binary_queue, args.ftdi_sn_prefix.encode('utf-8'), args.fast),
                                      daemon=True) 
     # binary decoder
     binary_decoder = BinaryDecoder(rx_binary_queue, rx_stream_queue, magic_bytes)
@@ -59,7 +59,7 @@ def execute(args):
                                              daemon=True)
 
     # stream decoder
-    stream_decoder = StreamDecoder(rx_stream_queue, rx_channel_queues, window, recorder_queues, recorder_request_queue)
+    stream_decoder = StreamDecoder(rx_stream_queue, rx_channel_queues, window, recorder_queues, recorder_request_queue, args.fast)
     stream_decoder_thread = threading.Thread(target=stream_decoder.run,
                                              daemon=True)
 
@@ -81,6 +81,7 @@ if __name__ == '__main__':
     parser.add_argument("--maxchannels", type=int, default=2)
     parser.add_argument("--centralchannel", type=int, default=0)
     parser.add_argument("--ftdi_sn_prefix", type=str, default="fsplit")
+    parser.add_argument("--fast", type=int, default=False)
     args = parser.parse_args()
     execute(args)
 

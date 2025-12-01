@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Live Image Viewer (constant-cost, no blitting)
+Live Image Viewer
 
-- No blitting: same draw path every frame (set_data + draw_idle).
-- Fixed normalization via matplotlib.colors.Normalize (no per-frame min/max).
-- Colorbar updates only when user changes vmin/vmax or cmap.
-- Interpretation modes unchanged ("int", "float16-view", "byte-decimal-view").
+- Normal mode: matplotlib GUI with vmin/vmax, colormap radios, dtype radios.
+- Fast mode: OpenCV window, jet colormap, uint8 input, pvmin=38, pvmax=141,
+  colorbar labeled 0.3–1.1, and "NaN" semantics via value 0 -> white.
 """
 
 from typing import Optional, Tuple
@@ -14,6 +13,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.widgets import TextBox, RadioButtons
 from matplotlib.colors import Normalize
+import cv2
 
 
 class LiveImageViewer:
@@ -26,6 +26,7 @@ class LiveImageViewer:
         vmin: Optional[float] = 0.0,
         vmax: Optional[float] = 255.0,
         title: str = "Live Image Viewer",
+        fast: bool = False,
         interpolation: str = "nearest",
         blit: bool = False,            # accepted but ignored (we disable blitting)
     ):
@@ -36,6 +37,7 @@ class LiveImageViewer:
         self._vmin = vmin
         self._vmax = vmax
         self._interpolation = interpolation
+        self._fast = fast
         self._needs_cbar_refresh = True
 
         # No blitting: keep flags for API compatibility, but never use them
@@ -46,11 +48,49 @@ class LiveImageViewer:
         self._updating_cmap = False
         self._updating_dtype = False
 
-        # Fixed normalization → constant work per frame
+        # Normalize object (used only in matplotlib mode)
+        self._norm: Optional[Normalize] = None
+
+        # Common attributes
+        self.fig = None
+        self.ax_img = None
+        self.im = None
+        self.cbar = None
+
+        # Fast mode (cv2) specific
+        self._win_name = title
+        self._cbar_img: Optional[np.ndarray] = None
+        self._pvmin: Optional[int] = None
+        self._pvmax: Optional[int] = None
+
+        if self._fast:
+            # --------- FAST MODE: OpenCV viewer ---------
+            # We treat incoming data as uint8 intensities directly.
+            self._interpretation = "byte-decimal-view"  # semantic only
+
+            # Pixel-domain min/max (uint8)
+            self._pvmin = 51.2
+            self._pvmax = 128
+
+            # Display labels for the colorbar (still 0.3–1.1)
+            self._vmin = 0.4
+            self._vmax = 1.0
+
+            # Prepare colorbar image once
+            self._build_cv2_colorbar()
+
+            # Create named windows (they will appear on first imshow)
+            cv2.namedWindow(self._win_name, cv2.WINDOW_NORMAL)
+            cv2.namedWindow(self._win_name + " colorbar", cv2.WINDOW_NORMAL)
+
+            return
+
+        # --------- NORMAL (FULL UI) MODE: matplotlib ---------
+        # Fixed normalization for this mode
         self._norm = Normalize(vmin=self._vmin, vmax=self._vmax, clip=True)
 
         # --- figure/layout ---
-        self.fig = plt.figure(figsize=( 12, 8.5), constrained_layout=True)
+        self.fig = plt.figure(figsize=(12, 8.5), constrained_layout=True)
         mgr = getattr(self.fig.canvas, "manager", None)
         if mgr and hasattr(mgr, "set_window_title"):
             mgr.set_window_title(title)
@@ -136,6 +176,9 @@ class LiveImageViewer:
 
     # ---------- Public API ----------
     def show(self, *, block: bool = False):
+        if self._fast:
+            # In cv2 mode, there's no blocking show; caller should use cv2.waitKey().
+            return
         plt.show(block=block)
 
     def update_image(self, array: np.ndarray, *, interpretation: Optional[str] = None,
@@ -144,6 +187,16 @@ class LiveImageViewer:
         # Convert reference; caller can ensure contiguity upstream if needed
         self._raw = np.asarray(array)
 
+        if self._fast:
+            # --------- FAST CV2 PATH ---------
+            frame_color = self._cv2_prepare_frame(self._raw)
+            cv2.imshow(self._win_name, frame_color)
+            if self._cbar_img is not None:
+                cv2.imshow(self._win_name + " colorbar", self._cbar_img)
+            # NOTE: caller (e.g., demo) should call cv2.waitKey(1) per frame
+            return
+
+        # --------- NORMAL MATPLOTLIB PATH ---------
         if interpretation is not None and interpretation != self._interpretation:
             self._interpretation = interpretation
 
@@ -151,46 +204,64 @@ class LiveImageViewer:
         if (vmin is not None) or (vmax is not None):
             self._vmin = self._vmin if vmin is None else vmin
             self._vmax = self._vmax if vmax is None else vmax
-            self._norm.vmin = self._vmin
-            self._norm.vmax = self._vmax
+            if self._norm is not None:
+                self._norm.vmin = self._vmin
+                self._norm.vmax = self._vmax
             self._needs_cbar_refresh = True
 
         if cmap is not None and cmap != self._cmap:
             self._cmap = cmap
-            self.im.set_cmap(cmap)
+            if self.im is not None:
+                self.im.set_cmap(cmap)
             self._needs_cbar_refresh = True
-            if cmap in self._cmap_options:
+            if hasattr(self, "rb_cmap") and hasattr(self, "_cmap_options") and cmap in self._cmap_options:
                 idx = self._cmap_options.index(cmap)
                 if idx != self.rb_cmap.active:
                     self.rb_cmap.set_active(idx)
 
         # Set new pixels (no autoscale)
         img = self._coerce_view(self._raw, self._interpretation)
-        self.im.set_data(img)
+        if self.im is not None:
+            self.im.set_data(img)
 
         # Only refresh colorbar when needed (constant cost otherwise)
-        if self._needs_cbar_refresh:
+        if self._needs_cbar_refresh and self.cbar is not None:
             self.cbar.update_normal(self.im)
             self._needs_cbar_refresh = False
 
         # Single draw path (no blitting)
-        self.fig.canvas.draw_idle()
+        if self.fig is not None:
+            self.fig.canvas.draw_idle()
 
     def set_vmin_vmax(self, vmin: Optional[float], vmax: Optional[float]) -> None:
+        if self._fast:
+            # In fast mode, vmin/vmax are fixed by design for the display,
+            # and the labels are already set. Ignore external changes.
+            return
+
         self._vmin, self._vmax = vmin, vmax
-        self._norm.vmin, self._norm.vmax = vmin, vmax
+        if self._norm is not None:
+            self._norm.vmin, self._norm.vmax = vmin, vmax
         self._needs_cbar_refresh = True
-        self.tb_vmin.set_val("" if vmin is None else str(vmin))
-        self.tb_vmax.set_val("" if vmax is None else str(vmax))
-        self.fig.canvas.draw_idle()
+
+        # UI elements exist only in non-fast mode
+        if hasattr(self, "tb_vmin"):
+            self.tb_vmin.set_val("" if vmin is None else str(vmin))
+        if hasattr(self, "tb_vmax"):
+            self.tb_vmax.set_val("" if vmax is None else str(vmax))
+
+        if self.fig is not None:
+            self.fig.canvas.draw_idle()
 
     def set_cmap(self, cmap: str) -> None:
         if cmap == self._cmap:
             return
         self._cmap = cmap
-        self.im.set_cmap(cmap)
-        self._needs_cbar_refresh = True
-        self.fig.canvas.draw_idle()
+        if not self._fast and self.im is not None:
+            self.im.set_cmap(cmap)
+            self._needs_cbar_refresh = True
+            if self.fig is not None:
+                self.fig.canvas.draw_idle()
 
     def set_interpretation(self, interpretation: str) -> None:
         if interpretation not in ("int", "float16-view", "byte-decimal-view"):
@@ -198,6 +269,10 @@ class LiveImageViewer:
         if interpretation == self._interpretation:
             return
         self._interpretation = interpretation
+
+        if self._fast:
+            # cv2 mode: semantics only, but display mapping is fixed
+            return
 
         # Prevent callback recursion when syncing the radio UI
         self._updating_dtype = True
@@ -211,20 +286,94 @@ class LiveImageViewer:
 
         # Re-render image with new interpretation (no autoscan)
         img = self._coerce_view(self._raw, self._interpretation)
-        self.im.set_data(img)
+        if self.im is not None:
+            self.im.set_data(img)
 
-        if self._needs_cbar_refresh:
+        if self._needs_cbar_refresh and self.cbar is not None:
             self.cbar.update_normal(self.im)
             self._needs_cbar_refresh = False
 
-        self.fig.canvas.draw_idle()
+        if self.fig is not None:
+            self.fig.canvas.draw_idle()
 
-    # ---------- Internals ----------
+    # ---------- Internals: cv2 path ----------
+    def _cv2_prepare_frame(self, arr: np.ndarray) -> np.ndarray:
+        # Treat input directly as uint8 image
+        a = np.asarray(arr)
+        if a.dtype != np.uint8:
+            a = a.astype(np.uint8)
+
+        # "NaN" semantics: raw value 0 is considered invalid → white
+        nan_mask = (a == 0)
+
+        pvmin = self._pvmin
+        pvmax = self._pvmax
+        if pvmin is None or pvmax is None:
+            # Fallback: use full range if somehow unset
+            pvmin, pvmax = 0, 255
+
+        # Convert to float for normalization
+        val = a.astype(np.float32)
+
+        # For "invalid" pixels (0), pretend they are at pvmin for colormap
+        val[nan_mask] = float(pvmin)
+
+        # Normalize to [0,1] based on pixel-domain vmin/vmax
+        norm = (val - float(pvmin)) / float(pvmax - pvmin)
+        norm = np.clip(norm, 0.0, 1.0)
+
+        # Convert to 8-bit index for colormap
+        img8 = (norm * 255.0).astype(np.uint8)
+
+        # Apply jet colormap
+        img_color = cv2.applyColorMap(img8, cv2.COLORMAP_JET)
+
+        # NaN → white (pixels that were 0 in original)
+        if nan_mask.any():
+            img_color[nan_mask] = (255, 255, 255)
+
+        return img_color
+
+    def _build_cv2_colorbar(self):
+        # Build vertical colorbar image using jet colormap
+        # Colors correspond to the same mapping we use for frames:
+        # pvmin (bottom, labeled 0.3) → pvmax (top, labeled 1.1)
+        h = 256
+        w = 40
+
+        pvmin = self._pvmin if self._pvmin is not None else 0
+        pvmax = self._pvmax if self._pvmax is not None else 255
+
+        # Pixel values from top (pvmax) to bottom (pvmin)
+        pix_vals = np.linspace(pvmax, pvmin, h, dtype=np.float32).reshape(h, 1)
+
+        # Normalize to [0,1] using same formula as _cv2_prepare_frame
+        norm = (pix_vals - float(pvmin)) / float(pvmax - pvmin)
+        norm = np.clip(norm, 0.0, 1.0)
+        idx = (norm * 255.0).astype(np.uint8)
+
+        # Apply JET colormap
+        cbar = cv2.applyColorMap(idx, cv2.COLORMAP_JET)
+        cbar = cv2.resize(cbar, (w, h), interpolation=cv2.INTER_NEAREST)
+
+        # Add labels using *display* values 0.3 and 1.1
+        cv2.putText(
+            cbar, f"{self._vmax:.1f}", (2, 15),
+            cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1, cv2.LINE_AA
+        )
+        cv2.putText(
+            cbar, f"{self._vmin:.1f}", (2, h - 5),
+            cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1, cv2.LINE_AA
+        )
+
+        self._cbar_img = cbar
+
+    # ---------- Internals: matplotlib path ----------
     def _coerce_view(self, arr: np.ndarray, interpretation: str) -> np.ndarray:
+        a = np.asarray(arr)
         if interpretation == "int":
-            return np.asarray(arr)
+            return a
         elif interpretation == "float16-view":
-            a = np.asarray(arr)
             if a.dtype == np.uint16 or a.dtype == np.int16:
                 return a.view(np.float16)
             if a.dtype == np.uint32 or a.dtype == np.int32:
@@ -239,8 +388,7 @@ class LiveImageViewer:
                 return b.view(np.float16)
             raise TypeError(f"Unsupported dtype {a.dtype} for float16-view")
         elif interpretation == "byte-decimal-view":
-            a = np.asarray(arr)
-            b = (a.astype(np.float32) / (2**7))
+            b = (a.astype(np.float32) / (2 ** 7))
             b[a == 0] = np.nan
             return b
         else:
@@ -249,29 +397,35 @@ class LiveImageViewer:
     def _on_submit_vmin(self, text: str) -> None:
         v = self._parse_optional_float(text)
         self._vmin = v
-        self._norm.vmin = v
+        if self._norm is not None:
+            self._norm.vmin = v
         self._needs_cbar_refresh = True
-        self.fig.canvas.draw_idle()
+        if self.fig is not None:
+            self.fig.canvas.draw_idle()
 
     def _on_submit_vmax(self, text: str) -> None:
         v = self._parse_optional_float(text)
         self._vmax = v
-        self._norm.vmax = v
+        if self._norm is not None:
+            self._norm.vmax = v
         self._needs_cbar_refresh = True
-        self.fig.canvas.draw_idle()
+        if self.fig is not None:
+            self.fig.canvas.draw_idle()
 
     def _on_dtype_clicked(self, label: str) -> None:
         if getattr(self, "_updating_dtype", False):
             return
         self.set_interpretation(label)
-        self.fig.canvas.draw_idle()
+        if self.fig is not None:
+            self.fig.canvas.draw_idle()
 
     def _on_cmap_clicked(self, label: str) -> None:
         self.set_cmap(label)
-        if self._needs_cbar_refresh:
+        if self._needs_cbar_refresh and self.cbar is not None:
             self.cbar.update_normal(self.im)
             self._needs_cbar_refresh = False
-        self.fig.canvas.draw_idle()
+        if self.fig is not None:
+            self.fig.canvas.draw_idle()
 
     def _parse_optional_float(self, text: str) -> Optional[float]:
         t = text.strip()
@@ -283,15 +437,17 @@ class LiveImageViewer:
             return None
 
     def _on_key(self, event) -> None:
+        # Fast (cv2) mode does not bind this
         if event.key in ("c", "C"):
             labels = [t.get_text() for t in self.rb_cmap.labels]
             idx = labels.index(self._cmap) if self._cmap in labels else 0
             idx = (idx + 1) % len(labels)
             self.set_cmap(labels[idx])
-            if self._needs_cbar_refresh:
+            if self._needs_cbar_refresh and self.cbar is not None:
                 self.cbar.update_normal(self.im)
                 self._needs_cbar_refresh = False
-            self.fig.canvas.draw_idle()
+            if self.fig is not None:
+                self.fig.canvas.draw_idle()
         elif event.key in ("d", "D"):
             self.set_interpretation("float16-view" if self._interpretation == "int" else "int")
         elif event.key in ("r", "R"):
@@ -302,39 +458,61 @@ class LiveImageViewer:
                 vmin = float(np.nanmin(img[finite]))
                 vmax = float(np.nanmax(img[finite]))
                 self._vmin, self._vmax = vmin, vmax
-                self._norm.vmin, self._norm.vmax = vmin, vmax
+                if self._norm is not None:
+                    self._norm.vmin, self._norm.vmax = vmin, vmax
                 self._needs_cbar_refresh = True
-            self.fig.canvas.draw_idle()
+            if self.fig is not None:
+                self.fig.canvas.draw_idle()
 
 
 # ---------------- Demo ----------------
-def _demo_stream(view_seconds: float = 10.0, channels: int = 1, blit: bool = False) -> None:
+def _demo_stream(view_seconds: float = 10.0, channels: int = 1,
+                 blit: bool = False, fast: bool = False) -> None:
     rng = np.random.default_rng(42)
     viewers = []
     for i in range(channels):
-        v = LiveImageViewer(shape=(240, 320), dtype=np.uint16,
-                            title=f"Viewer {i}", blit=blit)
+        v = LiveImageViewer(
+            shape=(240, 320),
+            dtype=np.uint8,     # good match for cv2 fast mode
+            title=f"Viewer {i}",
+            blit=blit,
+            fast=fast,
+        )
         viewers.append(v)
 
-    plt.ion()
-    plt.show(block=False)
+    if not fast:
+        plt.ion()
+        plt.show(block=False)
 
     import time
     t0 = time.time()
-    base = rng.integers(0, 65535, size=(240, 320), dtype=np.uint16)
+    base = rng.integers(0, 256, size=(240, 320), dtype=np.uint8)
     while time.time() - t0 < view_seconds:
         shift = int((time.time() - t0) * 60) % base.shape[1]
         frame = np.roll(base, shift=shift, axis=1)
-        noise = rng.integers(0, 256, size=frame.shape, dtype=np.uint16)
-        frame = (frame + noise).astype(np.uint16)
+        noise = rng.integers(0, 16, size=frame.shape, dtype=np.uint8)
+        frame = (frame + noise).astype(np.uint8)
+
+        # Introduce some zeros to see white "NaN" pixels:
+        frame[0:20, 0:20] = 0
 
         for v in viewers:
             v.update_image(frame)
 
-        plt.pause(0.01)
+        if fast:
+            # cv2 event processing
+            if cv2.waitKey(1) & 0xFF == 27:  # ESC to quit
+                break
+        else:
+            plt.pause(0.01)
 
-    plt.ioff()
-    plt.show()
+    if fast:
+        cv2.destroyAllWindows()
+    else:
+        plt.ioff()
+        plt.show()
+
 
 if __name__ == "__main__":
-    _demo_stream(view_seconds=10.0, channels=2, blit=True)
+    # fast=True → OpenCV mode
+    _demo_stream(view_seconds=10.0, channels=2, blit=True, fast=True)

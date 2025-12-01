@@ -50,7 +50,7 @@ def tile_arrays(arrays, fill_value=0):
 
 
 # Sends and Recieves binary data from FT232h chip
-def ft232h(rx_binary_queue, tx_binary_queue, sn_prefix=b'fsplit'):
+def ft232h(rx_binary_queue, tx_binary_queue, sn_prefix=b'fsplit', fast=0):
     # Find the ftdi device to open
     try:
         devlist = ft.listDevices()
@@ -73,7 +73,11 @@ def ft232h(rx_binary_queue, tx_binary_queue, sn_prefix=b'fsplit'):
     ftdev.resetDevice()
     print("Read Thread: setting modes")
     ftdev.setBitMode(0xff, 0x00)
-    ftdev.setTimeouts(100, 100)  # in ms
+    if(fast):
+        ftdev.setTimeouts(5,5)
+    else:
+        ftdev.setTimeouts(100,100)  # in ms
+    
     ftdev.setUSBParameters(64 * 1024, 64 * 1024)  # set rx, tx buffer size in bytes
     ftdev.setFlowControl(ft.defines.FLOW_RTS_CTS, 0, 0)
 
@@ -170,11 +174,11 @@ class BinaryDecoder:
 #
 # It also has the additional job of recording the fps stats.
 class StreamDecoder:
-    def __init__(self, rx_stream_queue, rx_channel_queues, window, recorder_queues, recorder_request_queue):
+    def __init__(self, rx_stream_queue, rx_channel_queues, window, recorder_queues, recorder_request_queue, fast=False):
         self.rx_stream_queue        = rx_stream_queue
         self.rx_channel_queues      = rx_channel_queues
         self.window                 = window
-
+        self.fast = fast
         # Recording related
         self.recorder_queues = recorder_queues
         self.recorder_request_queue = recorder_request_queue
@@ -220,13 +224,14 @@ class StreamDecoder:
                     # are and add it to the rx_channel_queues, with header info too
                     # threw in a small crop too
                     # if fast, cropping a 490x450 image:
-                    #self.rx_channel_queues[c].put(
-                    #    ([width, height, channels, data_width],
-                    #     channel[0:400, 0:480]))
-                    # else regular cropping a 500x480
-                    self.rx_channel_queues[c].put(
-                        ([width, height, channels, data_width],
-                         channel[15:415, 5:485]))
+                    if self.fast:
+                        self.rx_channel_queues[c].put(
+                            ([width, height, channels, data_width],
+                            channel[0:400, 0:480]))
+                    else:
+                        self.rx_channel_queues[c].put(
+                            ([width, height, channels, data_width],
+                            channel[15:415, 5:485]))
                     
                     # If recording is active, we should push it to the 
                     # recording queues too
@@ -364,7 +369,7 @@ class ImageDisplayWindow(QtWidgets.QMainWindow):
     image_scale: float = 1.0
     color_map: str = "gray"      # "gray" or "color"
 
-    def __init__(self, maxchannels, image_queue, command_queue, write_command_queue, channel_name="", parent=None):
+    def __init__(self, maxchannels, image_queue, command_queue, write_command_queue, fast=False, parent=None):
         """
         this window reads numpy arrays from image_queue containing images to display.
         Commands are sent from 'command_queue' to the different interface threads (the ft232
@@ -375,6 +380,7 @@ class ImageDisplayWindow(QtWidgets.QMainWindow):
         self.image_queue = image_queue
         self.command_queue = command_queue
         self.write_command_queue = write_command_queue
+        self.fast = fast
 
         # Make space for image display
         self.image_display = QtWidgets.QLabel(self)
@@ -395,7 +401,7 @@ class ImageDisplayWindow(QtWidgets.QMainWindow):
         # Matplotlib windows
         self.mp_windows = []
         for c in range(maxchannels):
-            self.mp_windows.append(LiveImageViewer(cmap="gray", vmin=0, vmax=255, title=("Channel "+str(c))))
+            self.mp_windows.append(LiveImageViewer(cmap="gray", vmin=0, vmax=255, title=("Channel "+str(c)), fast=self.fast))
         plt.show(block=False)
 
     def update_image(self):
